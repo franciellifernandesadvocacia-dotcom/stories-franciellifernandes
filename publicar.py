@@ -212,8 +212,12 @@ class Instagram:
         return resp
 
     def conta(self):
+        if "facebook" in self.host and not self.user_id and os.environ.get("PAGE_ID"):
+            # descobre a conta do Instagram ligada à Página do Facebook
+            pg = self._chamar("GET", os.environ["PAGE_ID"], {"fields": "instagram_business_account"})
+            self.user_id = (pg.get("instagram_business_account") or {}).get("id", "")
         if "facebook" in self.host and not self.user_id:
-            raise ErroAPI("com graph.facebook.com é preciso preencher IG_USER_ID")
+            raise ErroAPI("com graph.facebook.com é preciso preencher IG_USER_ID (ou a variável PAGE_ID)")
         campos = "user_id,username" if "instagram" in self.host else "id,username"
         alvo = self.user_id if "facebook" in self.host else "me"
         r = self._chamar("GET", alvo, {"fields": campos})

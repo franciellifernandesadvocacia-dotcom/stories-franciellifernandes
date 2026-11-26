@@ -35,6 +35,8 @@ Regras que nunca podem ser quebradas (Código de Ética e Provimento 205/2021 da
 - Não falar de preço, desconto, "consulta grátis", nem pedir que contratem.
 - Nada sensacionalista. Em notícia de acidente ou tragédia, nunca citar nome de vítima; tratar com respeito.
 - Não dar conselho para caso concreto; falar em termos gerais.
+- NUNCA inventar bastidores, reuniões, atendimentos, clientes, depoimentos ou histórias pessoais da Dra.
+  (nada de "hoje atendi...", "uma cliente me contou..."). Bastidores reais só entram quando ela mesma manda.
 - Regra jurídica (prazos, valores, requisitos, artigos) só pode ser afirmada se estiver na BASE DE
   CONHECIMENTO abaixo. Fato de notícia só pode vir da pesquisa de notícias. Na dúvida, não afirme.
 - Resumir notícias com as próprias palavras (nunca copiar trechos) e sempre dizer o veículo.
@@ -156,7 +158,7 @@ Cada story tem que fazer sentido depois do anterior e puxar o próximo.
 
 1. Escolha o TEMA DO DIA entre: {", ".join(TEMAS)}. Prefira o que combina com a notícia escolhida
    e evite repetir os temas dos últimos dias: {", ".join(hist.get("temas", [])[-4:]) or "nenhum"}.
-2. Story 1, tipo "bom_dia": titulo "Bom dia" (ou "Boa {dia_semana}"); {PERFIL["bom_dia"]}.
+2. Story 1, tipo "bom_dia": {PERFIL["bom_dia"].replace("{dia}", dia_semana) if "titulo" in PERFIL["bom_dia"] else 'titulo "Bom dia" (ou "Boa ' + dia_semana + '"); ' + PERFIL["bom_dia"]}.
 3. Stories 2 e 3, tipo "noticia": UMA notícia da lista abaixo, ligada ao tema, contada em
    DOIS stories seguidos (os dois com o mesmo número em "noticia" e a mesma "fonte" "Veículo · dd/mm"):
    - o primeiro conta o que aconteceu: titulo = manchete com suas palavras (até 70 caracteres);
@@ -172,7 +174,8 @@ Cada story tem que fazer sentido depois do anterior e puxar o próximo.
 5. Último story: fecha a conversa com um resumo curto e rodape "dúvidas? manda no direct".
    Só o último tem rodape; nos outros, rodape vazio.
 Limites: titulo até 60 caracteres e texto até 170 (exceto bom_dia e notícia, acima).
-"fonte" e "comentario" vazios e "noticia" = 0 quando não for notícia.
+"fonte" vazio e "noticia" = 0 quando não for notícia; "comentario" vazio quando não for notícia, exceto no
+bom_dia se as instruções do bom_dia pedirem uma frase de fechamento.
 "fundo": escolha um destes: {fundos} ({PERFIL["fundos_dica"]}).
 "assunto": 3 a 6 palavras resumindo cada story. Não repita estes assuntos recentes:
 {"; ".join(hist.get("assuntos", [])[-40:]) or "nenhum"}.

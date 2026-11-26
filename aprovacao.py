@@ -153,16 +153,28 @@ def ler_respostas(_tg=None):
     r = _tg("getUpdates", {"offset": e.get("offset", 0), "timeout": 0})
     campos, linhas = ler_linhas()
     mudou = False
+    albuns = {}                                     # várias fotos mandadas juntas (álbum) = uma colagem
+    for upd in r.get("result", []):
+        m = upd.get("message") or {}
+        if m.get("media_group_id") and str(m.get("chat", {}).get("id")) == str(chat):
+            albuns.setdefault(m["media_group_id"], []).append(m)
+    vistos = set()
     for upd in r.get("result", []):
         e["offset"] = upd["update_id"] + 1
         msg = upd.get("message") or {}
         if str(msg.get("chat", {}).get("id")) != str(chat):
             continue
         if msg.get("photo") or (msg.get("document") or {}).get("mime_type", "").startswith("image/"):
+            grupo = msg.get("media_group_id")
+            if grupo and grupo in vistos:
+                continue
             try:                                   # foto mandada por ela vira story
                 import foto_story
-                gravar_linhas(campos, linhas) if mudou else None
-                foto_story.processar(msg, chat, _tg)
+                if mudou:
+                    gravar_linhas(campos, linhas)
+                if grupo:
+                    vistos.add(grupo)
+                foto_story.processar(albuns[grupo] if grupo else msg, chat, _tg)
                 campos, linhas = ler_linhas()
                 mudou = False
             except Exception as ex:

@@ -135,23 +135,34 @@ def baixar_foto_telegram(file_id, destino, _tg):
 
 
 def processar(msg, chat, _tg, agora=None, _baixar=None):
-    """Recebe a mensagem do Telegram com foto, cria o story e põe na fila (já aprovado: foi ela quem mandou)."""
+    """Recebe a mensagem do Telegram com foto (ou um álbum: lista de mensagens), cria o story e põe na
+    fila já aprovado (foi ela quem mandou). Várias fotos juntas viram uma colagem de rotina."""
     import aprovacao
     import arte_sobria
     agora = agora or dt.datetime.now(P.fuso())
-    fotos = msg.get("photo") or []
-    file_id = fotos[-1]["file_id"] if fotos else (msg.get("document") or {}).get("file_id")
-    if not file_id:
+    msgs = msg if isinstance(msg, list) else [msg]
+    ids = []
+    for m in msgs:
+        fotos = m.get("photo") or []
+        fid = fotos[-1]["file_id"] if fotos else (m.get("document") or {}).get("file_id")
+        if fid:
+            ids.append(fid)
+    if not ids:
         return None
+    legenda = next((m.get("caption") for m in msgs if m.get("caption")), "")
     pasta = os.path.join(P.PASTA_STORIES, agora.strftime("%Y-%m-%d"))
     os.makedirs(pasta, exist_ok=True)
     marca = agora.strftime("%H%M%S")
-    original = os.path.join(pasta, f"enviada-{marca}-original.jpg")
-    (_baixar or baixar_foto_telegram)(file_id, original, _tg)
-    opcoes = interpretar(msg.get("caption", ""), original)
+    originais = []
+    for k, fid in enumerate(ids[:5]):
+        o = os.path.join(pasta, f"enviada-{marca}-original-{k}.jpg")
+        (_baixar or baixar_foto_telegram)(fid, o, _tg)
+        originais.append(o)
+    opcoes = interpretar(legenda, originais[0])
     nome = f"{agora:%Y-%m-%d}/enviada-{marca}.jpg"
-    arte_sobria.desenhar_foto(original, opcoes, os.path.join(P.PASTA_STORIES, nome))
-    os.remove(original)                       # o original não fica guardado no repositório
+    arte_sobria.desenhar_foto(originais if len(originais) > 1 else originais[0], opcoes, os.path.join(P.PASTA_STORIES, nome))
+    for o in originais:
+        os.remove(o)                          # os originais não ficam guardados no repositório
     campos, linhas = aprovacao.ler_linhas()
     ocupados = []
     for l in linhas:
@@ -163,8 +174,9 @@ def processar(msg, chat, _tg, agora=None, _baixar=None):
     linhas.append({"arquivo": nome, "data": quando.strftime("%Y-%m-%d"), "hora": quando.strftime("%H:%M"),
                    "status": "aprovado", "lote": "enviada"})
     aprovacao.gravar_linhas(campos or ["arquivo", "data", "hora", "status", "lote"], linhas)
+    tipo = "Colagem" if len(originais) > 1 else "Story"
     resumo = "sem texto" if opcoes.get("sem_texto") else f'texto: "{opcoes.get("texto", "")}"'
     _tg("sendPhoto", {"chat_id": chat, "caption":
-        f"Story programado para {quando:%d/%m às %H:%M} ({resumo}). Para cancelar, responda CANCELAR."},
+        f"{tipo} programado para {quando:%d/%m às %H:%M} ({resumo}). Para cancelar, responda CANCELAR."},
         [("photo", os.path.join(P.PASTA_STORIES, nome))])
     return nome

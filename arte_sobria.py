@@ -59,8 +59,10 @@ def texto_com_sombra(img, linhas, y, f, cor=BRANCO, entre=1.18, sombra=0.75, ali
     for i, ln in enumerate(linhas):
         px, anc = pos()
         dc.text((px, y + i * passo), ln, font=f, fill=255, anchor=anc)
-    halo = camada.filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.GaussianBlur(28))
-    img.paste(Image.new("RGB", (W, H), (0, 0, 0)), (0, 0), halo.point(lambda v: int(v * sombra)))
+    sombra = sombra * A.PERFIL.get("sombra_texto", 1)     # 0 = sem sombra atrás das letras
+    if sombra > 0:
+        halo = camada.filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.GaussianBlur(28))
+        img.paste(Image.new("RGB", (W, H), (0, 0, 0)), (0, 0), halo.point(lambda v: int(v * sombra)))
     d = ImageDraw.Draw(img)
     for i, ln in enumerate(linhas):
         px, anc = pos()
@@ -128,7 +130,104 @@ def cartao_noticia(img, story, rot):
         texto_com_sombra(img, ["Notícia do dia"], y0 - 86, fonte("detalhe", 40), BRANCO, alinh="l", x=92)
 
 
-LAYOUTS = ["base_esq", "topo_esq", "centro", "faixa", "destaque"]
+def italico(texto, f, cor, largura):
+    """Texto em itálico (inclina a fonte, como o itálico do Instagram)."""
+    linhas = A.quebrar(texto, f, largura - 40)
+    asc, desc = f.getmetrics()
+    passo = int((asc + desc) * 1.3)
+    cam = Image.new("RGBA", (largura + 60, passo * len(linhas) + 20), (0, 0, 0, 0))
+    d = ImageDraw.Draw(cam)
+    for i, ln in enumerate(linhas):
+        d.text((30, 10 + i * passo), ln, font=f, fill=cor)
+    inc = 0.18
+    return cam.transform(cam.size, Image.AFFINE, (1, inc, -inc * cam.height / 2, 0, 1, 0), Image.BICUBIC)
+
+
+def bom_dia_cartao(img, story):
+    """Bom dia no modelo 'cartão': máquina de escrever + cartão branco com o versículo + referência à direita
+    + frase curta de fechamento."""
+    texto, ref = story["texto"], ""
+    if " — " in texto:
+        texto, ref = texto.rsplit(" — ", 1)
+    x0, larg = 250, 640
+    bloco = italico("“" + texto + "”", fonte("texto", 42), (80, 78, 76), larg - 40)
+    alt_card = bloco.height + 50
+    y = int(H * 0.36)
+    d = ImageDraw.Draw(img)
+    d.text((x0, y), (story.get("titulo") or "bom dia").lower(), font=maquina(38), fill=BRANCO)
+    y += 64
+    d.rounded_rectangle((x0, y, x0 + larg, y + alt_card), 18, fill=(248, 248, 246))
+    img.paste(bloco, (x0 + 4, y + 22), bloco)
+    y += alt_card + 26
+    if ref:
+        f = maquina(32)
+        for ln in A.quebrar(ref.lower() if ref[0].isalpha() and ref[:1].islower() else ref, f, larg):
+            ImageDraw.Draw(img).text((x0 + larg, y), ln, font=f, fill=BRANCO, anchor="ra")
+            y += 40
+    fecho = story.get("comentario") or ""
+    if fecho:
+        f = maquina(36)
+        yy = int(H * 0.68)
+        for i, ln in enumerate(A.quebrar(fecho.lower(), f, 520)):
+            ImageDraw.Draw(img).text((W / 2, yy + i * 44), ln, font=f, fill=BRANCO, anchor="ma")
+
+
+LAYOUTS = ["base_esq", "diario", "topo_esq", "colagem", "centro", "faixa", "destaque"]
+
+
+def maquina(tam):
+    arq = A.PERFIL.get("fontes", {}).get("maquina", ["CourierPrime-Regular.ttf", None])[0]
+    return ImageFont.truetype(os.path.join(A.AQUI, "fontes", arq), int(tam))
+
+
+def grade(fotos, gap=8):
+    """Colagem no estilo 'Layout' do Instagram: 1, 2, 3 (1+2), 4 (2+2) ou 5 (1+2+2) fotos."""
+    n = max(1, min(5, len(fotos)))
+    fileiras = {1: [1], 2: [1, 1], 3: [1, 2], 4: [2, 2], 5: [1, 2, 2]}[n]
+    img = Image.new("RGB", (W, H), (0, 0, 0))
+    alt = (H - gap * (len(fileiras) - 1)) // len(fileiras)
+    i, y = 0, 0
+    for cols in fileiras:
+        larg = (W - gap * (cols - 1)) // cols
+        for c in range(cols):
+            ft = ImageOps.exif_transpose(Image.open(fotos[i])).convert("RGB")
+            img.paste(ImageOps.fit(ft, (larg, alt), centering=(0.5, 0.42)), (c * (larg + gap), y))
+            i += 1
+        y += alt + gap
+    return ImageEnhance.Brightness(img).enhance(min(1.0, A.PERFIL.get("exposicao", 0.6) + 0.2)), fileiras, alt
+
+
+def texto_colagem(img, texto, fileiras, alt, gap=8):
+    """Texto curtinho, minúsculo e simples, no último quadro (como no modelo de rotina)."""
+    if not texto:
+        return
+    f = fonte("texto", 38)
+    ultima_y = (len(fileiras) - 1) * (alt + gap)
+    cols = fileiras[-1]
+    x0 = W - (W - gap * (cols - 1)) // cols if cols > 1 else 0
+    larg_q = W - x0
+    linhas = A.quebrar(texto, f, larg_q - 80)
+    cam = Image.new("RGBA", (larg_q, alt), (0, 0, 0, 0))
+    d = ImageDraw.Draw(cam)
+    for k, ln in enumerate(linhas):
+        d.text((larg_q / 2, 60 + k * 48), ln, font=f, fill=(255, 255, 255, 255), anchor="ma")
+    sombra = cam.split()[3].filter(ImageFilter.GaussianBlur(10)).point(lambda v: int(v * 0.6))
+    img.paste((0, 0, 0), (x0, ultima_y), sombra)
+    img.paste(cam, (x0, ultima_y), cam)
+
+
+def diario(img, story):
+    """Modelo 'diário': máquina de escrever no alto à esquerda, barrinha, e frase em negrito centralizada."""
+    f1, f2 = maquina(44), maquina(38)
+    y = A.TOPO_SEGURO + 60
+    y = texto_com_sombra(img, A.quebrar(story["titulo"], f1, 760), y, f1, BRANCO, entre=1.25, sombra=0.55, alinh="l", x=92)
+    d = ImageDraw.Draw(img)
+    d.line([(96, y + 30), (96, y + 110)], fill=BRANCO, width=3)
+    y = texto_com_sombra(img, A.quebrar(story["texto"], f2, 760), y + 150, f2, BRANCO, entre=1.3, sombra=0.55, alinh="l", x=92)
+    frase = story.get("comentario") or story.get("rodape") or ""
+    if frase:
+        fb = fonte("titulo", 46)
+        texto_com_sombra(img, A.quebrar(frase, fb, 760), max(y + 160, int(H * 0.6)), fb, BRANCO, entre=1.15, sombra=0.6)
 
 
 def _layout(story, indice):
@@ -149,6 +248,8 @@ def desenhar(story, caminho):
 
     if tipo in tipos_noticia and not story.get("comentario"):
         cartao_noticia(img, story, rot)
+    elif tipo == "bom_dia" and (story.get("layout") == "cartao" or (not story.get("layout") and A.PERFIL.get("bom_dia_cartao") and len(story.get("texto", "")) % 3 != 0)):
+        bom_dia_cartao(img, story)
     elif tipo == "bom_dia":
         texto, ref = story["texto"], ""
         if " — " in texto:
@@ -160,6 +261,12 @@ def desenhar(story, caminho):
         y = texto_com_sombra(img, vl, y, f_v, BRANCO)
         if ref:
             texto_com_sombra(img, [ref], y + 24, fonte("detalhe", 38), DOURADO, sombra=0.6)
+    elif _layout(story, CONTADOR[0]) == "diario":
+        diario(img, story)
+    elif _layout(story, CONTADOR[0]) == "colagem":
+        fotos = [A.escolher_foto(story.get("fundo", "")) for _ in range(5)]
+        img, fil, alt = grade(fotos)
+        texto_colagem(img, (story["titulo"] + " — " + story["texto"]).lower() if story.get("texto") else story["titulo"].lower(), fil, alt)
     else:
         lay = _layout(story, CONTADOR[0])
         f_t, f_c = fonte("titulo", 76), fonte("texto", 52)
@@ -199,8 +306,22 @@ def desenhar(story, caminho):
     return caminho
 
 
+def desenhar_colagem(fotos, opcoes, destino):
+    """Várias fotos mandadas juntas pela Dra. viram uma colagem de rotina."""
+    img, fil, alt = grade(fotos)
+    if not opcoes.get("sem_texto"):
+        texto_colagem(img, (opcoes.get("texto") or "").strip(), fil, alt)
+    os.makedirs(os.path.dirname(destino), exist_ok=True)
+    img.save(destino, quality=88, optimize=True)
+    return destino
+
+
 def desenhar_foto(caminho_foto, opcoes, destino):
     """Story a partir de uma foto mandada pela Dra., com as instruções dela (sombra, exposição, posição...)."""
+    if isinstance(caminho_foto, (list, tuple)):
+        if len(caminho_foto) > 1:
+            return desenhar_colagem(caminho_foto, opcoes, destino)
+        caminho_foto = caminho_foto[0]
     ft = ImageOps.exif_transpose(Image.open(caminho_foto)).convert("RGB")
     ft = ImageOps.fit(ft, (W, H), centering=(0.5, 0.45))
     expo = opcoes.get("exposicao") or A.PERFIL.get("exposicao", 0.6)

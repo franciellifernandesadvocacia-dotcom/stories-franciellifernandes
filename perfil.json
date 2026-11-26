@@ -30,7 +30,7 @@
  },
  "tipos_do_tema": "aposentadoria, bpc_loas, incapacidade, maternidade, pensao, segurado, caso_real, jurisprudencia, curiosidade",
  "busca": "sobre Direito Previdenciário e INSS no Brasil. Procure PRIMEIRO no site Migalhas (migalhas.com.br); depois em fontes oficiais (stj.jus.br, stf.jus.br, TNU no cjf.jus.br, sites dos TRFs, gov.br/inss, Agência Senado, Agência Câmara) e veículos confiáveis. Traga uma mistura: (a) CASOS REAIS com decisão judicial favorável ao segurado noticiados pela imprensa ou pelos tribunais (ex.: mãe consegue BPC para filho autista, trabalhadora rural aposentada na Justiça, auxílio restabelecido após perícia errada); (b) JURISPRUDÊNCIA nova do STF, STJ, TNU ou TRFs a favor dos segurados; (c) mudanças nas regras e no atendimento do INSS; (d) CURIOSIDADES verdadeiras sobre o INSS e a Previdência. Marque no título de cada item, entre colchetes, o tipo: [CASO REAL], [JURISPRUDÊNCIA], [NOVIDADE] ou [CURIOSIDADE].",
- "bom_dia": "o texto é um versículo bíblico (ver a lista abaixo); o tema do dia aparece só a partir do story seguinte",
+ "bom_dia": "titulo \"muito bom dia\" (ou \"bom dia\" / \"boa {dia}\"); o texto é um versículo bíblico da lista abaixo; comentario = UMA frase curta de fechamento, leve, até 40 caracteres (ex.: \"que não nos falte fé\", \"que hoje seja leve\"); o tema do dia aparece só a partir do story seguinte",
  "fundos_dica": "varie MUITO as fotos para não parecer robotizado. bom_dia: cafe, pinterest-cafe ou paisagem; notícia/caso real/jurisprudência: pinterest-trabalho, pinterest-justica, notebook ou sala; demais stories: alterne fotos da Dra. (retrato-escuro, retrato-pb, retrato-claro, notebook, cafe, sala) com fotos de ambiente (pinterest-cafe, pinterest-trabalho, pinterest-estilo, paisagem). No máximo 3 fotos da Dra. por dia e nunca a mesma categoria em dois stories seguidos",
  "categorias_fotos": [
   "cafe",
@@ -133,9 +133,11 @@
   "stories": [
    {
     "tipo": "bom_dia",
-    "titulo": "Bom dia",
+    "titulo": "muito bom dia",
     "texto": "Este é o dia que fez o Senhor; regozijemo-nos e alegremo-nos nele. — Salmos 118:24",
-    "fundo": "paisagem"
+    "fundo": "pinterest-cafe",
+    "comentario": "que hoje seja leve",
+    "layout": "cartao"
    },
    {
     "tipo": "noticia",
@@ -212,6 +214,10 @@
   "rotulo": [
    "InstrumentSans.ttf",
    "SemiBold"
+  ],
+  "maquina": [
+   "CourierPrime-Regular.ttf",
+   null
   ]
  },
  "tamanhos": {
@@ -220,5 +226,7 @@
   "detalhe": 0.95,
   "rotulo": 0.95
  },
- "exposicao": 0.6
+ "exposicao": 0.5,
+ "sombra_texto": 0,
+ "bom_dia_cartao": true
 }
