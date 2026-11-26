@@ -28,6 +28,8 @@ class MetaFalsa:
         self.chamadas.append((metodo, url, dict(params)))
         if self.falhar_em and self.falhar_em in url:
             return {"error": {"message": "Invalid parameter", "code": 100, "error_subcode": 2207052}}
+        if url.endswith("/PAGINA1"):
+            return {"instagram_business_account": {"id": "1784PAGINA"}, "id": "PAGINA1"}
         if url.endswith("/me"):
             return {"user_id": "1784TESTE", "username": "dradasmultas"}
         if url.endswith("/media"):
@@ -155,6 +157,15 @@ class TestRodada(Base):
             ig.conta()
         ig = P.Instagram("TOKEN-TESTE", user_id="17841472104337280", host="graph.facebook.com", http=MetaFalsa())
         ig.publicar_story("https://exemplo.test/x.jpg")
+
+    def test_descobre_conta_pela_pagina(self):
+        os.environ["PAGE_ID"] = "PAGINA1"
+        try:
+            ig = P.Instagram("TOKEN-TESTE", host="graph.facebook.com", http=MetaFalsa())
+            ig.conta()
+            self.assertEqual(ig.user_id, "1784PAGINA")
+        finally:
+            os.environ.pop("PAGE_ID")
 
     def test_renovar_token(self):
         ig = P.Instagram("TOKEN-TESTE", http=MetaFalsa())

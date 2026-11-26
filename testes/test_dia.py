@@ -250,6 +250,40 @@ class TestFotoEnviada(Ambiente):
         A.ler_respostas(_tg=lambda m, c=None, a=None: {"result": [{"update_id": 6, "message": {"chat": {"id": 42}, "text": "cancelar"}}]} if m == "getUpdates" else {"ok": True})
         self.assertEqual(P.ler_fila()[0][0]["status"], "tirado")
 
+    def test_album_vira_colagem(self):
+        import foto_story as F
+        from PIL import Image
+        with open(P.FILA, "w", encoding="utf-8") as f:
+            f.write("arquivo,data,hora,status,lote\n")
+        A.salvar_estado({"offset": 0, "ultimo_lote": "", "lembrete": ""})
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+        msgs = [{"chat": {"id": 42}, "media_group_id": "g1", "photo": [{"file_id": f"f{i}"}],
+                 **({"caption": '"rotina de hoje"'} if i == 0 else {})} for i in range(3)]
+        baixadas = []
+
+        def baixar(fid, dest, _t):
+            Image.new("RGB", (900, 1200), (60 + 40 * len(baixadas), 80, 90)).save(dest)
+            baixadas.append(fid)
+            return dest
+        agora = self.agora("2026-12-01 09:10")
+        antigo = F.processar
+        F.processar = lambda m, c, t: antigo(m, c, t, agora=agora, _baixar=baixar)
+        enviados = []
+
+        def tg(metodo, campos=None, arquivos=None):
+            enviados.append(metodo)
+            if metodo == "getUpdates":
+                return {"result": [{"update_id": 10 + i, "message": m} for i, m in enumerate(msgs)]}
+            return {"ok": True}
+        try:
+            A.ler_respostas(_tg=tg)
+        finally:
+            F.processar = antigo
+        itens = P.ler_fila()[0]
+        self.assertEqual(len(itens), 1)                 # 3 fotos = 1 colagem
+        self.assertEqual(len(baixadas), 3)
+        self.assertEqual(P.conferir_imagem(itens[0]["arquivo"]), [])
+
     def test_instrucoes_simples(self):
         import foto_story as F
         o = F.interpretar_simples('"treino feito" mais escuro com faixa agora')
