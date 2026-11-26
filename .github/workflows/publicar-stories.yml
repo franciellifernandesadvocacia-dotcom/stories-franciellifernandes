@@ -1,0 +1,67 @@
+# Roda sozinho a cada 30 minutos nos servidores do GitHub (de graça em repositório público)
+# e publica os stories da fila.csv que chegaram na hora. O computador da Dra. pode ficar desligado.
+name: Publicar stories
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"   # horário UTC; o fuso de Cuiabá é tratado no publicar.py
+  workflow_dispatch:           # botão "Run workflow" para rodar na mão
+    inputs:
+      modo:
+        description: "teste = só confere | verificar-token | publicar-um | normal"
+        default: teste
+        type: choice
+        options: [teste, verificar-token, publicar-um, normal]
+      arquivo:
+        description: "Para publicar-um: nome do arquivo em stories/ (ex.: 2026-12-01/01-bom-dia.jpg ou destaques/lei-seca/01.jpg)"
+        required: false
+
+concurrency:
+  group: publicar-stories     # nunca roda duas vezes ao mesmo tempo (evita story repetido)
+  cancel-in-progress: false
+
+permissions:
+  contents: write             # para salvar o registro.csv no repositório
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Publicar
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          API_HOST: ${{ vars.API_HOST }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MODO: ${{ github.event.inputs.modo || 'normal' }}
+          ARQUIVO: ${{ github.event.inputs.arquivo }}
+        run: |
+          [ -z "$API_HOST" ] && unset API_HOST
+          case "$MODO" in
+            teste)            python publicar.py --teste ;;
+            verificar-token)  python publicar.py --verificar-token ;;
+            publicar-um)      python publicar.py --so-este "$ARQUIVO" ;;
+            *)                python publicar.py ;;
+          esac
+
+      - name: Salvar registro
+        if: always()
+        run: |
+          if [ -n "$(git status --porcelain registro.csv fila.csv estado.json stories)" ]; then
+            git config user.name "publicador-stories"
+            git config user.email "actions@users.noreply.github.com"
+            git add -A registro.csv fila.csv estado.json stories
+            git commit -m "registro: $(date -u +%Y-%m-%dT%H:%MZ)"
+            git pull --rebase && git push
+          fi

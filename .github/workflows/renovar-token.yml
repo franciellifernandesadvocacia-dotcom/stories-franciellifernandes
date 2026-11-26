@@ -1,0 +1,39 @@
+# O token do "Instagram Login" vale 60 dias. Este robô renova toda segunda-feira
+# e guarda o token novo no lugar do antigo (segredo IG_TOKEN).
+# Precisa do segredo PAT_SEGREDOS (token do GitHub com permissão "Secrets: read and write"
+# só neste repositório). Sem ele, o robô só avisa por e-mail que é hora de renovar na mão.
+name: Renovar token do Instagram
+
+on:
+  schedule:
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+
+jobs:
+  renovar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Renovar e guardar
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_SEGREDOS }}
+          ARQUIVO_TOKEN_NOVO: ${{ runner.temp }}/token-novo
+        run: |
+          if [ "${{ vars.API_HOST }}" = "graph.facebook.com" ]; then
+            echo "Token de usuário do sistema não vence; nada a renovar."; exit 0
+          fi
+          if [ -z "$IG_TOKEN" ]; then
+            echo "::notice::IG_TOKEN ainda não configurado; nada a renovar."; exit 0
+          fi
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Falta o segredo PAT_SEGREDOS. Gere um token novo no app da Meta e troque o IG_TOKEN."
+            exit 1
+          fi
+          python publicar.py --renovar-token
+          gh secret set IG_TOKEN --repo "$GITHUB_REPOSITORY" < "$ARQUIVO_TOKEN_NOVO"
+          rm -f "$ARQUIVO_TOKEN_NOVO"
+          echo "Token renovado e guardado."

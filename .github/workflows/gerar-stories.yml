@@ -1,0 +1,85 @@
+# Todo dia por volta das 19h (Cuiabá) o robô busca as notícias, escreve e desenha os stories de AMANHÃ,
+# guarda no repositório e manda para aprovação no Telegram.
+name: Gerar stories do dia seguinte
+
+on:
+  schedule:
+    - cron: "50 22 * * *"    # 22:50 UTC = 18:50 em Cuiabá (fora dos horários do publicador)
+  workflow_dispatch:
+    inputs:
+      para:
+        description: "Dia (hoje, amanha ou AAAA-MM-DD)"
+        default: amanha
+      exemplo:
+        description: "Usar textos de exemplo, sem chamar o Claude (teste grátis)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: gerar-stories
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+
+      - name: Destrancar as fotos pessoais (se houver)
+        env:
+          FOTOS_CHAVE: ${{ secrets.FOTOS_CHAVE }}
+        run: |
+          if ls fotos.enc.parte-* >/dev/null 2>&1; then
+            if [ -z "$FOTOS_CHAVE" ]; then echo "::error::Falta o segredo FOTOS_CHAVE"; exit 1; fi
+            cat fotos.enc.parte-* | openssl enc -d -aes-256-cbc -pbkdf2 -pass env:FOTOS_CHAVE | tar -xf -
+            echo "$(ls fotos | wc -l) fotos prontas"
+          fi
+
+      - name: Gerar
+        id: gerar
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          STORIES_POR_DIA: ${{ vars.STORIES_POR_DIA }}
+          APROVACAO: ${{ vars.APROVACAO }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          [ -z "$STORIES_POR_DIA" ] && unset STORIES_POR_DIA
+          [ -z "$APROVACAO" ] && unset APROVACAO
+          if [ "${{ github.event.inputs.exemplo }}" = "true" ]; then EX=--exemplo
+          elif [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::notice::Chave do Claude (ANTHROPIC_API_KEY) ainda não configurada; nada gerado."; exit 0
+          fi
+          python gerar_dia.py --para "${{ github.event.inputs.para || 'amanha' }}" $EX
+
+      - name: Guardar no repositório
+        if: always()
+        run: |
+          git config user.name "gerador-stories"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A stories fila.csv
+          for f in historico.json docs; do [ -e "$f" ] && git add -A "$f"; done
+          if ! git diff --cached --quiet; then
+            git commit -m "stories gerados: $(date -u +%Y-%m-%d)"
+            git pull --rebase && git push
+          fi
+
+      - name: Mandar para aprovação
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          LOTE="${{ steps.gerar.outputs.lote }}"
+          [ -z "$LOTE" ] && { echo "Nada novo para aprovar."; exit 0; }
+          python aprovacao.py --enviar "$LOTE"
+          if [ -n "$(git status --porcelain estado.json)" ]; then
+            git add estado.json && git commit -m "aprovação enviada" && git pull --rebase && git push
+          fi
