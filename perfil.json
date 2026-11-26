@@ -1,0 +1,224 @@
+{
+ "nome": "Francielli Fernandes Advocacia",
+ "handle": "@franciellifernandes.adv",
+ "estilo": "sobrio",
+ "descricao": "Você escreve os stories diários do Instagram @franciellifernandes.adv, perfil profissional da\nadvogada Dra. Francielli Fernandes (Fernandes Advocacia, Várzea Grande/MT), com foco em Direito\nPrevidenciário (INSS).",
+ "tom": "Tom: sóbrio, elegante e acolhedor, como uma advogada conversando com calma. Frases curtas e\nclaras, português do Brasil, sem juridiquês e sem gírias. Nada de hashtags, emojis ou exclamações em excesso.",
+ "area": "previdenciário",
+ "temas": [
+  "aposentadoria",
+  "BPC/LOAS",
+  "benefícios por incapacidade",
+  "salário-maternidade",
+  "pensão por morte",
+  "direitos do segurado e revisões"
+ ],
+ "tipos": {
+  "bom_dia": "",
+  "noticia": "NOTÍCIA",
+  "aposentadoria": "APOSENTADORIA",
+  "bpc_loas": "BPC/LOAS",
+  "incapacidade": "INCAPACIDADE",
+  "maternidade": "SALÁRIO-MATERNIDADE",
+  "pensao": "PENSÃO POR MORTE",
+  "segurado": "DIREITOS DO SEGURADO",
+  "dica": "",
+  "pergunta": "VOCÊ SABIA?",
+  "caso_real": "CASO REAL",
+  "jurisprudencia": "JURISPRUDÊNCIA",
+  "curiosidade": "CURIOSIDADE"
+ },
+ "tipos_do_tema": "aposentadoria, bpc_loas, incapacidade, maternidade, pensao, segurado, caso_real, jurisprudencia, curiosidade",
+ "busca": "sobre Direito Previdenciário e INSS no Brasil. Procure PRIMEIRO no site Migalhas (migalhas.com.br); depois em fontes oficiais (stj.jus.br, stf.jus.br, TNU no cjf.jus.br, sites dos TRFs, gov.br/inss, Agência Senado, Agência Câmara) e veículos confiáveis. Traga uma mistura: (a) CASOS REAIS com decisão judicial favorável ao segurado noticiados pela imprensa ou pelos tribunais (ex.: mãe consegue BPC para filho autista, trabalhadora rural aposentada na Justiça, auxílio restabelecido após perícia errada); (b) JURISPRUDÊNCIA nova do STF, STJ, TNU ou TRFs a favor dos segurados; (c) mudanças nas regras e no atendimento do INSS; (d) CURIOSIDADES verdadeiras sobre o INSS e a Previdência. Marque no título de cada item, entre colchetes, o tipo: [CASO REAL], [JURISPRUDÊNCIA], [NOVIDADE] ou [CURIOSIDADE].",
+ "bom_dia": "o texto é um versículo bíblico (ver a lista abaixo); o tema do dia aparece só a partir do story seguinte",
+ "fundos_dica": "varie MUITO as fotos para não parecer robotizado. bom_dia: cafe, pinterest-cafe ou paisagem; notícia/caso real/jurisprudência: pinterest-trabalho, pinterest-justica, notebook ou sala; demais stories: alterne fotos da Dra. (retrato-escuro, retrato-pb, retrato-claro, notebook, cafe, sala) com fotos de ambiente (pinterest-cafe, pinterest-trabalho, pinterest-estilo, paisagem). No máximo 3 fotos da Dra. por dia e nunca a mesma categoria em dois stories seguidos",
+ "categorias_fotos": [
+  "cafe",
+  "notebook",
+  "retrato-escuro",
+  "retrato-pb",
+  "retrato-claro",
+  "sala",
+  "pinterest-cafe",
+  "pinterest-trabalho",
+  "pinterest-estilo",
+  "pinterest-justica",
+  "paisagem"
+ ],
+ "cores": [],
+ "versiculos": [
+  {
+   "texto": "O Senhor é o meu pastor; nada me faltará.",
+   "ref": "Salmos 23:1"
+  },
+  {
+   "texto": "Tudo posso naquele que me fortalece.",
+   "ref": "Filipenses 4:13"
+  },
+  {
+   "texto": "Entrega o teu caminho ao Senhor; confia nele, e ele tudo fará.",
+   "ref": "Salmos 37:5"
+  },
+  {
+   "texto": "Este é o dia que fez o Senhor; regozijemo-nos e alegremo-nos nele.",
+   "ref": "Salmos 118:24"
+  },
+  {
+   "texto": "As misericórdias do Senhor não têm fim; renovam-se cada manhã.",
+   "ref": "Lamentações 3:22-23"
+  },
+  {
+   "texto": "Não temas, porque eu sou contigo.",
+   "ref": "Isaías 41:10"
+  },
+  {
+   "texto": "Bem-aventurados os que têm fome e sede de justiça, porque eles serão fartos.",
+   "ref": "Mateus 5:6"
+  },
+  {
+   "texto": "Aprendei a fazer o bem; procurai o que é justo.",
+   "ref": "Isaías 1:17"
+  },
+  {
+   "texto": "O justo florescerá como a palmeira.",
+   "ref": "Salmos 92:12"
+  },
+  {
+   "texto": "Corra o juízo como as águas, e a justiça como o ribeiro impetuoso.",
+   "ref": "Amós 5:24"
+  },
+  {
+   "texto": "Bem-aventurados os pacificadores, porque eles serão chamados filhos de Deus.",
+   "ref": "Mateus 5:9"
+  },
+  {
+   "texto": "Lança o teu cuidado sobre o Senhor, e ele te susterá.",
+   "ref": "Salmos 55:22"
+  },
+  {
+   "texto": "Deus é o nosso refúgio e fortaleza, socorro bem presente na angústia.",
+   "ref": "Salmos 46:1"
+  },
+  {
+   "texto": "Os que esperam no Senhor renovarão as suas forças.",
+   "ref": "Isaías 40:31"
+  },
+  {
+   "texto": "Em tudo dai graças.",
+   "ref": "1 Tessalonicenses 5:18"
+  },
+  {
+   "texto": "O choro pode durar uma noite, mas a alegria vem pela manhã.",
+   "ref": "Salmos 30:5"
+  },
+  {
+   "texto": "Confia no Senhor de todo o teu coração e não te estribes no teu próprio entendimento.",
+   "ref": "Provérbios 3:5"
+  },
+  {
+   "texto": "Abre a tua boca a favor do mudo, pelo direito de todos os que se acham em desolação.",
+   "ref": "Provérbios 31:8"
+  },
+  {
+   "texto": "Tudo tem o seu tempo determinado, e há tempo para todo propósito debaixo do céu.",
+   "ref": "Eclesiastes 3:1"
+  },
+  {
+   "texto": "Aquietai-vos e sabei que eu sou Deus.",
+   "ref": "Salmos 46:10"
+  }
+ ],
+ "exemplo": {
+  "tema": "BPC/LOAS",
+  "stories": [
+   {
+    "tipo": "bom_dia",
+    "titulo": "Bom dia",
+    "texto": "Este é o dia que fez o Senhor; regozijemo-nos e alegremo-nos nele. — Salmos 118:24",
+    "fundo": "paisagem"
+   },
+   {
+    "tipo": "noticia",
+    "titulo": "(EXEMPLO) Mudança no atendimento do INSS",
+    "texto": "Notícia de exemplo, só para testar o robô sem chamar o Claude. Aqui entra o resumo da matéria lida.",
+    "fonte": "Migalhas · 01/12",
+    "fundo": "pinterest-trabalho",
+    "link": "https://example.com/noticia"
+   },
+   {
+    "tipo": "noticia",
+    "titulo": "E o que isso muda para você?",
+    "texto": "Aqui entra a explicação do que a notícia muda na vida de quem depende do INSS.",
+    "fonte": "Migalhas · 01/12",
+    "comentario": "E isso tem tudo a ver com o BPC, o assunto de hoje.",
+    "fundo": "pinterest-justica",
+    "link": "https://example.com/noticia",
+    "layout": "faixa"
+   },
+   {
+    "tipo": "bpc_loas",
+    "titulo": "O BPC não é aposentadoria",
+    "texto": "É um benefício assistencial de um salário mínimo para idosos a partir de 65 anos ou pessoas com deficiência.",
+    "fundo": "retrato-escuro",
+    "layout": "destaque"
+   },
+   {
+    "tipo": "bpc_loas",
+    "titulo": "Quem pode pedir?",
+    "texto": "Quem não tem meios de se manter nem de ser mantido pela família. A renda da família é analisada.",
+    "fundo": "pinterest-cafe",
+    "layout": "topo_esq"
+   },
+   {
+    "tipo": "bpc_loas",
+    "titulo": "Um detalhe importante",
+    "texto": "O BPC não paga 13º e não deixa pensão por morte.",
+    "fundo": "pinterest-estilo",
+    "layout": "centro"
+   },
+   {
+    "tipo": "dica",
+    "titulo": "Resumindo",
+    "texto": "Antes de desistir de um pedido negado, vale entender o motivo da negativa.",
+    "fundo": "cafe",
+    "rodape": "dúvidas? me chama no direct",
+    "layout": "base_esq"
+   }
+  ]
+ },
+ "pauta_semana": {
+  "segunda": "comece a semana com uma NOVIDADE do INSS ou da Previdência ligada ao tema do dia",
+  "terça": "traga um CASO REAL noticiado de segurado que conseguiu o benefício na Justiça (tipo caso_real), ligado ao tema",
+  "quarta": "traga uma JURISPRUDÊNCIA recente favorável ao segurado (tipo jurisprudencia), explicada de forma simples",
+  "quinta": "traga um CASO REAL noticiado (tipo caso_real), de preferência envolvendo BPC/LOAS, autismo ou deficiência",
+  "sexta": "notícia da semana + uma CURIOSIDADE leve e verdadeira sobre o INSS (tipo curiosidade) no fim da sequência",
+  "sábado": "dia leve: sequência mais curta de CURIOSIDADES verdadeiras e divertidas sobre o INSS (tipo curiosidade), sem perder a elegância",
+  "domingo": "dia leve: uma reflexão curta + uma CURIOSIDADE verdadeira sobre a Previdência (tipo curiosidade)"
+ },
+ "regras_extra": "Casos reais: use SÓ casos noticiados publicamente na lista de notícias. Nunca diga ou insinue que o caso é do escritório ou da Dra. Nunca cite nome de partes, e jamais identifique crianças. Diga o tribunal (ex.: \"a Justiça Federal em SP\", \"o TRF-1\") e conte o que foi decidido, sem prometer o mesmo resultado a ninguém (cada caso é analisado). Curiosidades: só fatos verdadeiros da base de conhecimento ou das notícias; o tom pode ser leve e bem-humorado, mas sempre elegante e respeitoso.",
+ "fontes": {
+  "titulo": [
+   "InstrumentSans.ttf",
+   "SemiBold"
+  ],
+  "texto": [
+   "InstrumentSans.ttf",
+   "Regular"
+  ],
+  "detalhe": [
+   "InstrumentSans.ttf",
+   "Medium"
+  ],
+  "rotulo": [
+   "InstrumentSans.ttf",
+   "SemiBold"
+  ]
+ },
+ "tamanhos": {
+  "titulo": 0.95,
+  "texto": 0.92,
+  "detalhe": 0.95,
+  "rotulo": 0.95
+ },
+ "exposicao": 0.6
+}
