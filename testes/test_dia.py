@@ -69,9 +69,9 @@ class TestGerar(Ambiente):
         self.assertEqual(len(itens), 7)
         self.assertTrue(all(i["status"] == "aguardando" for i in itens))
         self.assertEqual(itens[0]["quando"].strftime("%H:%M"), "08:00")
-        self.assertEqual(itens[-1]["quando"].strftime("%H:%M"), "19:40")
+        self.assertEqual(itens[-1]["quando"].strftime("%H:%M"), "11:20")
         # os dois stories da notícia saem juntos, um atrás do outro
-        self.assertEqual([i["quando"].strftime("%H:%M") for i in itens[1:3]], ["10:20", "10:21"])
+        self.assertEqual([i["quando"].strftime("%H:%M") for i in itens[1:3]], ["08:40", "08:41"])
         for i in itens:
             self.assertEqual(P.conferir_imagem(i["arquivo"]), [])  # 1080x1920, JPEG
         self.assertEqual(G.gerar(DIA, exemplo=True), 0)  # não gera duas vezes o mesmo dia
@@ -190,7 +190,7 @@ class TestAprovacao(Ambiente):
     def test_blocos_com_o_claude(self):
         st = [{"tipo": "bom_dia", "bloco": 1}, {"tipo": "noticia", "bloco": 2}, {"tipo": "noticia", "bloco": 2},
               {"tipo": "pergunta", "bloco": 3}, {"tipo": "dica", "bloco": 3}, {"tipo": "dica", "bloco": 4}]
-        self.assertEqual(G.horarios(6, st), ["08:00", "12:00", "12:01", "16:00", "16:01", "20:00"])
+        self.assertEqual(G.horarios(6, st), ["08:00", "09:20", "09:21", "10:40", "10:41", "12:00"])
 
     def test_automatico_avisa_e_deixa_cancelar(self):
         os.environ["APROVACAO"] = "automatica"
@@ -212,12 +212,12 @@ class TestAprovacao(Ambiente):
         os.environ["APROVACAO"] = "automatica"
         G.gerar(DIA, exemplo=True)
         status = lambda: [i["status"] for i in P.ler_fila()[0]]
-        # hoje = 01/12 às 12:00: os 3 primeiros já passaram; só os da tarde pausam
+        # hoje = 01/12 às 09:00: os 3 primeiros já passaram; os outros 4 pausam
         tg = TelegramFalso(["só fotos hoje"])
-        A.ler_respostas(_tg=tg, agora=self.agora("2026-12-01 12:00"))
+        A.ler_respostas(_tg=tg, agora=self.agora("2026-12-01 09:00"))
         self.assertEqual(status().count("pausado"), 4)
         self.assertIn("hoje só saem as fotos", tg.enviados[-1][1]["text"])
-        A.ler_respostas(_tg=TelegramFalso(["você comanda"]), agora=self.agora("2026-12-01 12:30"))
+        A.ler_respostas(_tg=TelegramFalso(["você comanda"]), agora=self.agora("2026-12-01 09:10"))
         self.assertEqual(status().count("aprovado"), 7)
         # desligado de vez: pausa tudo que falta e o gerador não cria o dia seguinte
         A.ler_respostas(_tg=TelegramFalso(["SÓ FOTOS"]), agora=self.agora("2026-11-30 20:00"))
@@ -326,6 +326,32 @@ class TestFotoEnviada(Ambiente):
         self.assertEqual(F.horario("agora", agora, []), agora + dt.timedelta(minutes=5))
         livre = F.horario("", agora, [self.agora("2026-12-01 10:00")])
         self.assertEqual(livre.strftime("%H:%M"), "11:00")
+
+
+class TestAvisoDeMudanca(Ambiente):
+    def test_reenvia_quando_muda_o_horario(self):
+        os.environ["APROVACAO"] = "automatica"
+        G.gerar(DIA, exemplo=True)
+        A.enviar_lote("2026-12-01", _tg=TelegramFalso())
+        tg = TelegramFalso()
+        self.assertEqual(A.avisar_mudancas(self.agora("2026-11-30 21:00"), _tg=tg), 0)  # nada mudou
+        campos, linhas = A.ler_linhas()
+        linhas[1]["hora"] = "09:40"
+        A.gravar_linhas(campos, linhas)
+        self.assertEqual(A.avisar_mudancas(self.agora("2026-11-30 21:30"), _tg=tg), 1)
+        self.assertIn("ATUALIZADO", tg.enviados[-1][1]["text"])
+        self.assertIn("09:40", tg.enviados[-1][1]["text"])
+        self.assertEqual(A.avisar_mudancas(self.agora("2026-11-30 22:00"), _tg=tg), 0)  # só uma vez
+
+    def test_atualizacao_mostra_so_o_que_falta(self):
+        os.environ["APROVACAO"] = "automatica"
+        G.gerar(DIA, exemplo=True)
+        ig = P.Instagram("TOKEN-TESTE", http=MetaFalsa(), espera=0)
+        A.telegram = TelegramFalso()
+        P.rodada(ig, self.agora("2026-12-01 08:07"))   # nunca avisado: manda o que falta
+        textos = [c["text"] for m, c, _ in A.telegram.enviados if m == "sendMessage"]
+        self.assertTrue(any("ATUALIZADO" in t for t in textos))
+        self.assertFalse(any("08:00" in t for t in textos if "ATUALIZADO" in t))
 
 
 if __name__ == "__main__":
