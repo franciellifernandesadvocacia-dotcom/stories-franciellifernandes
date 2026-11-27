@@ -22,7 +22,7 @@ import publicar as P
 OPCOES_PADRAO = {"texto": "", "sem_texto": False, "sombra": True, "exposicao": None,
                  "posicao": "auto", "faixa": False, "quando": "",
                  "alinhamento": "", "fonte": "normal", "tamanho": "pequeno", "caixa": "", "minusculas": False,
-                 "modelo_indice": -1}
+                 "modelo_indice": -1, "borda": False}
 PEDE_MODELO = r"modelo|refer[eê]ncia|igual (a|à|ao|esse|essa)|mesmo estilo|nesse estilo|nessa pegada|inspira"
 LIMITE_TELEGRAM = 20 * 1024 * 1024        # o Telegram só deixa o robô baixar arquivos de até 20 MB
 
@@ -42,9 +42,10 @@ ESQUEMA = {
         "caixa": {"type": "string", "enum": ["", "nenhuma", "faixa", "cartao"]},
         "minusculas": {"type": "boolean"},
         "modelo_indice": {"type": "integer"},
+        "borda": {"type": "boolean"},
     },
     "required": ["texto", "sem_texto", "sombra", "exposicao", "posicao", "faixa", "quando",
-                 "alinhamento", "fonte", "tamanho", "caixa", "minusculas", "modelo_indice"],
+                 "alinhamento", "fonte", "tamanho", "caixa", "minusculas", "modelo_indice", "borda"],
     "additionalProperties": False,
 }
 
@@ -60,6 +61,9 @@ def interpretar_simples(legenda):
     o["sombra"] = not re.search(r"sem sombra", b)
     o["sem_texto"] = bool(re.search(r"sem (texto|frase|legenda)", b))
     o["faixa"] = bool(re.search(r"com faixa|com fundo", b))
+    o["borda"] = bool(re.search(r"com borda|com espa[cç]o", b))
+    if re.search(r"centraliz|no centro|no meio", b):
+        o["alinhamento"] = "centro"
     if re.search(r"sem escurecer|n[aã]o escure|foto clara|sem escuro", b):
         o["exposicao"] = 1.0
     elif re.search(r"mais escur", b):
@@ -67,6 +71,10 @@ def interpretar_simples(legenda):
     for chave, pos in (("em cima", "topo"), ("no topo", "topo"), ("no meio", "meio"), ("embaixo", "base"), ("em baixo", "base")):
         if chave in b:
             o["posicao"] = pos
+    if re.search(r"sub(a|ir|ir o|e) (o )?texto", b):
+        o["posicao"] = "topo"
+    elif re.search(r"des[cç](a|er|e) (o )?texto", b):
+        o["posicao"] = "base"
     for chave, al in (("esquerda", "esquerda"), ("direita", "direita"), ("centraliz", "centro")):
         if chave in b:
             o["alinhamento"] = al
@@ -122,6 +130,9 @@ def interpretar_com_claude(legenda, caminho_foto, cliente=None, video=False):
         "- alinhamento: esquerda, centro, direita ou \"\" (automático).\n"
         "- faixa: true se pediu faixa/fundo atrás das letras.\n"
         "- tamanho: pequeno (letra de story do dia a dia), a não ser que ela peça letra maior ou o modelo mostre.\n"
+        "- borda: true só se ela pediu borda/espaço entre as fotos da colagem (o padrão é sem borda).\n"
+        "- 'mais centralizado' = alinhamento centro; 'suba o texto' = posicao topo ou meio (o que ficar mais alto que "
+        "antes sem cobrir rosto); 'desça o texto' = base. Siga cada pedido dela à risca.\n"
         "- quando: \"agora\", um horário \"HH:MM\" ou \"\" (sem pedido).")
     resp = cliente.beta.messages.create(
         model=G.MODELO, max_tokens=2000, betas=["server-side-fallback-2026-07-01"], fallbacks="default",
@@ -307,7 +318,10 @@ def corrigir(pend, correcao, chat, _tg, agora=None, _baixar=None):
         o = os.path.join(pasta, f"enviada-{marca}-original-{k}.jpg")
         (_baixar or baixar_foto_telegram)(fid, o, _tg)
         originais.append(o)
-    pedido = f"CORREÇÃO (vale mais que o resto): {correcao}\nPedido original: {pend.get('legenda') or '(nenhum)'}"
+    antes = pend.get("correcoes", [])
+    pedido = (f"CORREÇÃO NOVA (vale mais que tudo): {correcao}\n"
+              + "".join(f"Correção anterior (continua valendo): {c}\n" for c in reversed(antes))
+              + f"Pedido original: {pend.get('legenda') or '(nenhum)'}")
     opcoes = interpretar(pedido, originais)
     if not re.search(r'[“"]', correcao) and not opcoes.get("sem_texto"):
         orig = interpretar_simples(pend.get("legenda", ""))     # sem texto novo entre aspas: mantém o texto dela

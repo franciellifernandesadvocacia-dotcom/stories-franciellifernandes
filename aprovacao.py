@@ -355,6 +355,7 @@ def ler_respostas(_tg=None, agora=None):
                     if l["arquivo"] == pend["arquivo"]:
                         l["arquivo"] = novo
                 pend["arquivo"] = novo
+                pend["correcoes"] = (pend.get("correcoes", []) + [texto_msg.strip()])[-6:]
                 mudou = True
             except Exception as ex:
                 P.avisar(f"não consegui refazer o story com a correção: {ex}")

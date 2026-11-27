@@ -264,8 +264,33 @@ def maquina(tam):
     return ImageFont.truetype(os.path.join(A.AQUI, "fontes", arq), int(tam))
 
 
-def grade(fotos, gap=8):
-    """Colagem no estilo 'Layout' do Instagram: 1, 2, 3 (1+2), 4 (2+2) ou 5 (1+2+2) fotos."""
+def encaixar(ft, tam):
+    """Recorta a foto no tamanho do quadro sem cortar o rosto: o rosto fica inteiro, um pouco acima do meio."""
+    w, h = tam
+    esc = max(w / ft.width, h / ft.height)
+    sw, sh = ft.width * esc, ft.height * esc
+    faces = rostos(ft)
+    if faces:                                       # fica só com o rosto principal (o detector às vezes erra)
+        area = lambda f: (f[2] - f[0]) * (f[3] - f[1])  # noqa: E731
+        faces = [max(faces, key=area)]
+    cy, cx = 0.42, 0.5
+    if faces and sh > h + 1:
+        topo = min(f[1] for f in faces) * esc
+        base = max(f[3] for f in faces) * esc
+        meio = (topo + base) / 2
+        off = meio - h * 0.42                       # rosto um pouco acima do meio do quadro
+        off = min(off, topo - 20)                   # nunca corta o alto da cabeça
+        off = max(off, base + 20 - h)               # nem o queixo
+        cy = min(1.0, max(0.0, off / (sh - h)))
+    if faces and sw > w + 1:
+        meio_x = (min(f[0] for f in faces) + max(f[2] for f in faces)) / 2 * esc
+        cx = min(1.0, max(0.0, (meio_x - w / 2) / (sw - w)))
+    return ImageOps.fit(ft, (w, h), centering=(cx, cy))
+
+
+def grade(fotos, gap=0):
+    """Colagem no estilo 'Layout' do Instagram: 1, 2, 3 (1+2), 4 (2+2) ou 5 (1+2+2) fotos, sem borda
+    (a não ser que ela peça), cada foto enquadrada pelo rosto."""
     n = max(1, min(5, len(fotos)))
     fileiras = {1: [1], 2: [1, 1], 3: [1, 2], 4: [2, 2], 5: [1, 2, 2]}[n]
     img = Image.new("RGB", (W, H), (0, 0, 0))
@@ -275,10 +300,10 @@ def grade(fotos, gap=8):
         larg = (W - gap * (cols - 1)) // cols
         for c in range(cols):
             ft = ImageOps.exif_transpose(Image.open(fotos[i])).convert("RGB")
-            img.paste(ImageOps.fit(ft, (larg, alt), centering=(0.5, 0.42)), (c * (larg + gap), y))
+            img.paste(encaixar(ft, (larg, alt)), (c * (larg + gap), y))
             i += 1
         y += alt + gap
-    return ImageEnhance.Brightness(img).enhance(min(1.0, A.PERFIL.get("exposicao", 0.6) + 0.2)), fileiras, alt
+    return img, fileiras, alt
 
 
 def texto_colagem(img, texto, fileiras, alt, gap=8):
@@ -403,9 +428,13 @@ def desenhar(story, caminho):
 
 def desenhar_colagem(fotos, opcoes, destino):
     """Várias fotos mandadas juntas pela Dra. viram uma colagem de rotina."""
-    img, fil, alt = grade(fotos)
-    if not opcoes.get("sem_texto"):
-        texto_colagem(img, (opcoes.get("texto") or "").strip(), fil, alt)
+    img, fil, alt = grade(fotos, gap=8 if opcoes.get("borda") else 0)
+    texto = "" if opcoes.get("sem_texto") else (opcoes.get("texto") or "").strip()
+    if texto:                      # mesmo texto das fotos soltas: segue posição, tamanho e alinhamento pedidos
+        pl = plano_texto(img, texto, opcoes)
+        if not opcoes.get("exposicao") and pl["caixa"] == "nenhuma":
+            escurecer(img, [_caixa_texto(pl)])
+        escrever(img, pl, 0.75 if opcoes.get("sombra", True) else 0)
     os.makedirs(os.path.dirname(destino), exist_ok=True)
     img.save(destino, quality=88, optimize=True)
     return destino
@@ -459,6 +488,7 @@ def plano_texto(base, texto, o):
         pos = "topo" if y < H * 0.33 else ("base" if y > H * 0.55 else "meio")
     else:
         y = {"topo": A.TOPO_SEGURO + 80, "meio": int(H * 0.5 - alt / 2), "base": A.BASE_SEGURA - 180 - alt}.get(pos, int(H * 0.5 - alt / 2))
+        y = escolher_y(base, alt, y, rostos(base))      # mesmo pedindo a posição, o texto nunca fica no rosto
     al = {"esquerda": "l", "centro": "c", "direita": "r"}.get(o.get("alinhamento") or "", "c" if pos == "meio" else "l")
     return {"f": f, "linhas": linhas, "y": y, "alt": alt, "alinh": al, "caixa": caixa, "passo": passo}
 
