@@ -323,3 +323,88 @@ class TestFotoEnviada(Ambiente):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestModeloEVideo(Ambiente):
+    def setUp(self):
+        super().setUp()
+        with open(P.FILA, "w", encoding="utf-8") as f:
+            f.write("arquivo,data,hora,status,lote\n")
+        A.salvar_estado({"offset": 0, "ultimo_lote": "", "lembrete": ""})
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+
+    def _rodar(self, msgs, baixar):
+        import foto_story as F
+        enviados = []
+
+        def tg(metodo, campos=None, arquivos=None):
+            enviados.append((metodo, campos, arquivos))
+            if metodo == "getUpdates":
+                return {"result": [{"update_id": 10 + i, "message": m} for i, m in enumerate(msgs)]}
+            return {"ok": True}
+        antigo = F.processar
+        F.processar = lambda m, c, t: antigo(m, c, t, agora=self.agora("2026-12-01 09:10"), _baixar=baixar)
+        try:
+            A.ler_respostas(_tg=tg)
+        finally:
+            F.processar = antigo
+        return enviados
+
+    def test_foto_de_modelo_nao_entra_no_story(self):
+        from PIL import Image
+        import foto_story as F
+        self.assertEqual(F.interpretar_simples("máquina de escrever, à direita, minúsculas")["fonte"], "maquina")
+        msgs = [{"chat": {"id": 42}, "media_group_id": "g2", "photo": [{"file_id": f"m{i}"}],
+                 **({"caption": 'pegue essa foto e use o modelo abaixo, escreva "isso na foto"'} if i == 0 else {})}
+                for i in range(2)]
+        baixadas = []
+
+        def baixar(fid, dest, _t):
+            Image.new("RGB", (900, 1600), (90, 70, 60)).save(dest)
+            baixadas.append(fid)
+            return dest
+        enviados = self._rodar(msgs, baixar)
+        self.assertEqual(len(baixadas), 2)
+        itens = P.ler_fila()[0]
+        self.assertEqual(len(itens), 1)
+        self.assertEqual(P.conferir_imagem(itens[0]["arquivo"]), [])
+        legenda = [c["caption"] for m, c, a in enviados if m == "sendPhoto"][0]
+        self.assertIn("estilo do modelo", legenda)
+        self.assertIn("isso na foto", legenda)
+
+    def test_video_vira_story_em_partes(self):
+        import subprocess
+        import foto_story as F
+
+        def baixar(fid, dest, _t):   # vídeo de teste de 70 s sem som, deitado (vira 1080x1920)
+            subprocess.run([F.ffmpeg(), "-y", "-f", "lavfi", "-i", "testsrc=size=640x360:rate=10:duration=70",
+                            "-c:v", "libx264", "-preset", "ultrafast", dest], capture_output=True, check=True)
+            return dest
+        msg = {"chat": {"id": 42}, "video": {"file_id": "v1", "file_size": 2_000_000}, "caption": '"bastidores" agora'}
+        enviados = self._rodar([msg], baixar)
+        itens = P.ler_fila()[0]
+        self.assertEqual([i["arquivo"][-10:] for i in itens], ["parte1.mp4", "parte2.mp4"])
+        self.assertTrue(all(i["quando"] == itens[0]["quando"] for i in itens))
+        self.assertEqual(P.conferir_imagem(itens[0]["arquivo"]), [])
+        dur, audio = F.info_video(os.path.join(P.PASTA_STORIES, itens[0]["arquivo"]))
+        self.assertTrue(58 <= dur <= 60 and audio)
+        self.assertTrue(any(m == "sendVideo" and "2 partes" in c["caption"] for m, c, a in enviados))
+        self.assertFalse(any("original" in f for f in os.listdir(os.path.join(P.PASTA_STORIES, "2026-12-01"))))
+        # cancelar tira as duas partes
+        A.ler_respostas(_tg=lambda m, c=None, a=None: {"result": [{"update_id": 30, "message": {"chat": {"id": 42}, "text": "cancelar"}}]} if m == "getUpdates" else {"ok": True})
+        self.assertEqual({i["status"] for i in P.ler_fila()[0]}, {"tirado"})
+
+    def test_video_grande_demais(self):
+        msg = {"chat": {"id": 42}, "video": {"file_id": "v2", "file_size": 45_000_000}}
+        enviados = self._rodar([msg], lambda *a: self.fail("não devia baixar"))
+        self.assertEqual(P.ler_fila()[0], [])
+        self.assertTrue(any(m == "sendMessage" and "20 MB" in c["text"] for m, c, a in enviados))
+
+    def test_publica_video_com_video_url(self):
+        from test_publicar import MetaFalsa
+        meta = MetaFalsa()
+        ig = P.Instagram("TOKEN-TESTE", user_id="1784", host="graph.facebook.com", http=meta, espera=0)
+        ig.publicar_story("https://exemplo.test/stories/2026-12-01/enviada-1.mp4")
+        post = [p for m, u, p in meta.chamadas if u.endswith("/media")][0]
+        self.assertIn("video_url", post)
+        self.assertNotIn("image_url", post)
