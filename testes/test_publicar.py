@@ -53,6 +53,7 @@ class Base(unittest.TestCase):
         P.PASTA_STORIES = os.path.join(self.tmp, "stories")
         os.makedirs(P.PASTA_STORIES)
         os.environ["URL_IMAGENS"] = "https://exemplo.test/stories"
+        os.environ["CONFERIR_FEED"] = "0"
 
     def tearDown(self):
         P.FILA, P.REGISTRO, P.PASTA_STORIES = self.antigo

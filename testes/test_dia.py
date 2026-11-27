@@ -29,7 +29,7 @@ class Ambiente(unittest.TestCase):
         G.HISTORICO = os.path.join(self.tmp, "historico.json")
         A.ESTADO = os.path.join(self.tmp, "estado.json")
         os.makedirs(P.PASTA_STORIES)
-        os.environ.update(URL_IMAGENS="https://exemplo.test/stories", TELEGRAM_BOT_TOKEN="BOT", TELEGRAM_CHAT_ID="42",
+        os.environ.update(CONFERIR_FEED="0", URL_IMAGENS="https://exemplo.test/stories", TELEGRAM_BOT_TOKEN="BOT", TELEGRAM_CHAT_ID="42",
                           STORIES_POR_DIA="7", APROVACAO="obrigatoria")
         self.avisos = []
         self._avisar, P.avisar = P.avisar, self.avisos.append
@@ -68,8 +68,10 @@ class TestGerar(Ambiente):
         self.assertEqual(probs, [])
         self.assertEqual(len(itens), 7)
         self.assertTrue(all(i["status"] == "aguardando" for i in itens))
-        self.assertEqual(itens[0]["quando"].strftime("%H:%M"), "07:00")
-        self.assertEqual(itens[-1]["quando"].strftime("%H:%M"), "21:00")
+        self.assertEqual(itens[0]["quando"].strftime("%H:%M"), "08:00")
+        self.assertEqual(itens[-1]["quando"].strftime("%H:%M"), "19:40")
+        # os dois stories da notícia saem juntos, um atrás do outro
+        self.assertEqual([i["quando"].strftime("%H:%M") for i in itens[1:3]], ["10:20", "10:21"])
         for i in itens:
             self.assertEqual(P.conferir_imagem(i["arquivo"]), [])  # 1080x1920, JPEG
         self.assertEqual(G.gerar(DIA, exemplo=True), 0)  # não gera duas vezes o mesmo dia
@@ -166,24 +168,29 @@ class TestAprovacao(Ambiente):
         ig = P.Instagram("TOKEN-TESTE", http=MetaFalsa(), espera=0)
         # sem resposta: nada sai e ela recebe um lembrete (só um por dia)
         A.telegram = TelegramFalso()
-        P.rodada(ig, self.agora("2026-12-01 07:07"))
-        P.rodada(ig, self.agora("2026-12-01 07:37"))
+        P.rodada(ig, self.agora("2026-12-01 08:07"))
+        P.rodada(ig, self.agora("2026-12-01 08:37"))
         self.assertFalse(os.path.exists(P.REGISTRO))
         self.assertEqual(sum("aguardam aprovação" in a for a in self.avisos), 1)
         # ela responde "ok menos 3": sai o 1 agora; o 3 nunca sai
         A.telegram = TelegramFalso(["ok menos 3"])
-        P.rodada(ig, self.agora("2026-12-01 08:07"))
+        P.rodada(ig, self.agora("2026-12-01 09:07"))
         status = [i["status"] for i in P.ler_fila()[0]]
         self.assertEqual(status.count("tirado"), 1)
         self.assertEqual(status[2], "tirado")
         with open(P.REGISTRO, encoding="utf-8") as f:
-            self.assertIn("01-bom-dia.jpg,2026-12-01 07:00,publicado", f.read())
+            self.assertIn("01-bom-dia.jpg,2026-12-01 08:00,publicado", f.read())
         A.telegram = TelegramFalso()
         P.rodada(ig, self.agora("2026-12-01 21:07"))
         with open(P.REGISTRO, encoding="utf-8") as f:
             reg = f.read()
         self.assertNotIn("03-noticia", reg)
         self.assertIn("07-dica.jpg", reg)
+
+    def test_blocos_com_o_claude(self):
+        st = [{"tipo": "bom_dia", "bloco": 1}, {"tipo": "noticia", "bloco": 2}, {"tipo": "noticia", "bloco": 2},
+              {"tipo": "pergunta", "bloco": 3}, {"tipo": "dica", "bloco": 3}, {"tipo": "dica", "bloco": 4}]
+        self.assertEqual(G.horarios(6, st), ["08:00", "12:00", "12:01", "16:00", "16:01", "20:00"])
 
     def test_automatico_avisa_e_deixa_cancelar(self):
         os.environ["APROVACAO"] = "automatica"
@@ -210,7 +217,7 @@ class TestAprovacao(Ambiente):
         A.ler_respostas(_tg=tg, agora=self.agora("2026-12-01 12:00"))
         self.assertEqual(status().count("pausado"), 4)
         self.assertIn("hoje só saem as fotos", tg.enviados[-1][1]["text"])
-        A.ler_respostas(_tg=TelegramFalso(["você comanda"]), agora=self.agora("2026-12-01 13:00"))
+        A.ler_respostas(_tg=TelegramFalso(["você comanda"]), agora=self.agora("2026-12-01 12:30"))
         self.assertEqual(status().count("aprovado"), 7)
         # desligado de vez: pausa tudo que falta e o gerador não cria o dia seguinte
         A.ler_respostas(_tg=TelegramFalso(["SÓ FOTOS"]), agora=self.agora("2026-11-30 20:00"))
@@ -408,3 +415,72 @@ class TestModeloEVideo(Ambiente):
         post = [p for m, u, p in meta.chamadas if u.endswith("/media")][0]
         self.assertIn("video_url", post)
         self.assertNotIn("image_url", post)
+
+
+class TestCasoEPost(Ambiente):
+    def setUp(self):
+        super().setUp()
+        with open(P.FILA, "w", encoding="utf-8") as f:
+            f.write("arquivo,data,hora,status,lote\n")
+        A.salvar_estado({"offset": 0, "ultimo_lote": "", "lembrete": ""})
+
+    def test_caso_mandado_pelo_telegram(self):
+        import relato as R
+        self.assertTrue(R.e_relato("CASO: chegou uma mãe..."))
+        self.assertTrue(R.e_relato("caso - hoje"))
+        self.assertFalse(R.e_relato("casou ontem"))
+        recebido = []
+
+        def escrever(texto):
+            recebido.append(texto)
+            return {"quando": "", "stories": [
+                {"titulo": "Hoje chegou aqui uma mãe", "texto": "O BPC do filho tinha sido negado.", "comentario": "", "fundo": "sala"},
+                {"titulo": "Fomos à Justiça", "texto": "E a sentença concedeu o benefício.", "comentario": "", "fundo": "notebook"},
+                {"titulo": "O que fica", "texto": "Negativa do INSS nem sempre é a palavra final.", "comentario": "", "fundo": "paisagem"}]}
+        enviados = []
+        tg = lambda m, c=None, a=None: enviados.append((m, c, a)) or {"ok": True}
+        texto = "CASO: chegou uma mãe com o BPC do filho negado por renda; fomos à Justiça e saiu a sentença concedendo"
+        nomes = R.processar_caso(texto, 42, tg, agora=self.agora("2026-12-01 09:10"), _escrever=escrever)
+        self.assertEqual(len(nomes), 3)
+        self.assertNotIn("CASO", recebido[0])
+        itens = P.ler_fila()[0]
+        self.assertEqual(len({i["quando"] for i in itens}), 1)          # bloco: saem juntos
+        self.assertTrue(all(P.conferir_imagem(i["arquivo"]) == [] for i in itens))
+        self.assertTrue(any(m == "sendMediaGroup" for m, c, a in enviados))
+        # CANCELAR tira o caso inteiro
+        A.ler_respostas(_tg=lambda m, c=None, a=None: {"result": [{"update_id": 40, "message": {"chat": {"id": 42}, "text": "cancelar"}}]} if m == "getUpdates" else {"ok": True})
+        self.assertEqual({i["status"] for i in P.ler_fila()[0]}, {"tirado"})
+
+    def test_post_novo_no_feed_vira_story(self):
+        import relato as R
+        from PIL import Image
+        os.environ["CONFERIR_FEED"] = "1"
+        antigo = R.A.PERFIL.get("story_de_post")
+        R.A.PERFIL["story_de_post"] = True
+        feed = [{"id": "111", "caption": "post antigo", "media_type": "IMAGE", "media_url": "u1"}]
+
+        class IG:
+            user_id = "1784"
+
+            def _chamar(self, metodo, caminho, params=None):
+                return {"data": list(feed)}
+
+        def baixar(url, dest):
+            Image.new("RGB", (1080, 1350), (150, 120, 100)).save(dest)
+            return dest
+        try:
+            agora = self.agora("2026-12-01 10:00")
+            self.assertEqual(R.story_de_posts(IG(), agora, baixar, lambda l, i: {}), [])   # 1ª vez: só anota
+            feed.insert(0, {"id": "222", "caption": "BPC negado? Veja 3 motivos comuns.", "media_type": "CAROUSEL_ALBUM",
+                            "children": {"data": [{"media_type": "IMAGE", "media_url": "u2"}]}})
+            tg = []
+            nomes = R.story_de_posts(IG(), agora, baixar,
+                                     lambda l, i: {"titulo": "BPC negado?", "texto": "Três motivos comuns de negativa."},
+                                     lambda m, c=None, a=None: tg.append(m) or {"ok": True})
+            self.assertEqual(nomes, ["2026-12-01/post-222.jpg"])
+            self.assertEqual(P.conferir_imagem(nomes[0]), [])
+            self.assertEqual(R.story_de_posts(IG(), agora, baixar, lambda l, i: {}), [])   # não repete
+            self.assertIn("sendPhoto", tg)
+        finally:
+            R.A.PERFIL["story_de_post"] = antigo
+            os.environ["CONFERIR_FEED"] = "0"
