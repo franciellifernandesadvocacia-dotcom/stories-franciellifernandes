@@ -1,5 +1,5 @@
 {
- "offset": 105796029,
+ "offset": 105796031,
  "ultimo_lote": "2026-11-27",
  "lembrete": "",
  "posts_vistos": [
@@ -15,5 +15,13 @@
  ],
  "avisado": {
   "2026-11-27": "418095959913e0ab2f1e34391a5c0513b6dd3aa0"
+ },
+ "foto_pendente": {
+  "ids": [
+   "AgACAgEAAxkBAAMkawmkMnPea1vk8yVdgcVnt2Ra0AcAAlANaxsjGVFE_uAzJxWRWwUBAAMCAAN5AAM9BA",
+   "AgACAgEAAxkBAAMpawm8aVISLUl5-oDpYj9f0-eXpkEAAlUNaxsjGVFEV6eui7G88DUBAAMCAAN5AAM9BA"
+  ],
+  "legenda": "Poste agora, sem sombra. Legenda pequena e centralizada: cuidando da sa\u00fade e da mente, na disciplina pura e fazendo o que precisa ser feito. Mande para mim aprovar",
+  "arquivo": "2026-11-27/enviada-132250.jpg"
  }
 }
