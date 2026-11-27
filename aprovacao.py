@@ -10,6 +10,7 @@ Sem Telegram configurado, dá para aprovar editando a coluna "status" da fila.cs
 """
 import argparse
 import csv
+import datetime as dt
 import json
 import mimetypes
 import os
@@ -120,7 +121,9 @@ def enviar_lote(lote, _tg=None):
         _tg("sendMessage", {"chat_id": chat, "text":
             f"Stories de {lote[8:10]}/{lote[5:7]} programados (automático)" + (f" — tema: {tema}" if tema else "") +
             f":\n\n{resumo}\n\nVão sair sozinhos. Para cancelar algum, responda por exemplo:\n"
-            "NÃO 3 = tira o 3\nNÃO = cancela todos do dia"})
+            "NÃO 3 = tira o 3\nNÃO = cancela todos do dia\n"
+            "SÓ FOTOS HOJE = hoje só as fotos que você mandar\nSÓ FOTOS = desliga o automático\n"
+            "VOCÊ COMANDA = religa"})
     else:
         _tg("sendMessage", {"chat_id": chat, "text":
             f"Stories de {lote[8:10]}/{lote[5:7]} para aprovar" + (f" (tema: {tema})" if tema else "") + f":\n\n{resumo}\n\n"
@@ -143,7 +146,59 @@ def interpretar(texto):
     return None, set()
 
 
-def ler_respostas(_tg=None):
+def comando_modo(texto):
+    """Liga/desliga a sequência automática pelo Telegram.
+    SÓ FOTOS HOJE  -> hoje só saem as fotos que ela mandar (amanhã volta ao normal)
+    SÓ FOTOS       -> desliga a sequência automática até ela mandar VOCÊ COMANDA
+    VOCÊ COMANDA   -> religa"""
+    t = texto.strip().lower()
+    for a, b in (("ó", "o"), ("ê", "e"), ("á", "a"), ("ç", "c"), ("ô", "o")):
+        t = t.replace(a, b)
+    if "deslig" not in t and re.search(r"\b(voce comanda|religa\w*|ligar|liga o automatico|volta\w* ao normal)\b", t):
+        return "ligar"
+    if re.search(r"\b(so fotos|so as minhas fotos|so minhas fotos|deslig\w*|pausa\w*)\b", t):
+        return "hoje" if "hoje" in t else "desligar"
+    return None
+
+
+def _quando(l):
+    try:
+        return P._data_hora(l["data"], l["hora"])
+    except (ValueError, KeyError):
+        return None
+
+
+def aplicar_modo(cmd, e, linhas, agora):
+    """Pausa ou devolve os stories automáticos que ainda não saíram. Devolve o texto da resposta."""
+    hoje = agora.date().isoformat()
+    auto = [l for l in linhas if l.get("lote") not in ("enviada", "", None)
+            and _quando(l) is not None and _quando(l) > agora]
+    if cmd == "ligar":
+        e["modo"] = "automatico"
+        e.pop("so_fotos_dia", None)
+        volta = "aprovado" if os.environ.get("APROVACAO", "obrigatoria") == "automatica" else "aguardando"
+        n = 0
+        for l in auto:
+            if l.get("status") == "pausado":
+                l["status"] = volta
+                n += 1
+        return ("Combinado, eu volto a comandar: a sequência automática está ligada"
+                + (f" e {n} stories voltaram para a fila." if n else ".")
+                + "\nSuas fotos continuam valendo: é só mandar.")
+    alvo = [l for l in auto if l.get("status") in ("aprovado", "aguardando")
+            and (cmd == "desligar" or l.get("data") == hoje)]
+    for l in alvo:
+        l["status"] = "pausado"
+    if cmd == "hoje":
+        e["so_fotos_dia"] = hoje
+        return (f"Combinado: hoje só saem as fotos que você mandar ({len(alvo)} stories automáticos pausados). "
+                "Amanhã eu volto a comandar sozinho.\nPara religar antes, mande VOCÊ COMANDA.")
+    e["modo"] = "so_fotos"
+    return (f"Combinado: sequência automática desligada ({len(alvo)} stories pausados). "
+            "Só vão sair as fotos que você mandar.\nQuando quiser que eu volte a comandar, mande VOCÊ COMANDA.")
+
+
+def ler_respostas(_tg=None, agora=None):
     """Lê as respostas novas no Telegram e atualiza a fila. Chamado a cada rodada do publicador."""
     _tg = _tg or telegram
     tk, chat = _cfg()
@@ -179,6 +234,12 @@ def ler_respostas(_tg=None):
                 mudou = False
             except Exception as ex:
                 P.avisar(f"não consegui montar o story da foto: {ex}")
+            continue
+        cmd = comando_modo(msg.get("text", ""))
+        if cmd:
+            resposta = aplicar_modo(cmd, e, linhas, agora or dt.datetime.now(P.fuso()))
+            mudou = True
+            _tg("sendMessage", {"chat_id": chat, "text": resposta})
             continue
         if msg.get("text", "").strip().lower().startswith("cancelar"):
             futuras = [l for l in linhas if l.get("lote") == "enviada" and l.get("status") == "aprovado"]

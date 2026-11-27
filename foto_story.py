@@ -166,6 +166,8 @@ def processar(msg, chat, _tg, agora=None, _baixar=None):
     campos, linhas = aprovacao.ler_linhas()
     ocupados = []
     for l in linhas:
+        if l.get("status") not in ("aprovado", "aguardando"):
+            continue
         try:
             ocupados.append(P._data_hora(l["data"], l["hora"]))
         except (ValueError, KeyError):

@@ -306,6 +306,10 @@ def _saida_github(lote):
 
 
 def gerar(dia, exemplo=False):
+    import aprovacao
+    if aprovacao.ler_estado().get("modo") == "so_fotos":
+        print("Modo SÓ FOTOS ligado pelo Telegram: não gero a sequência automática.")
+        return 0
     hist = ler_historico()
     for k in ("temas", "links"):
         hist.setdefault(k, [])
