@@ -151,38 +151,39 @@ def escrever_stories(cliente, hoje, noticias, quantos, hist):
     pauta = PERFIL.get("pauta_semana", {}).get(dia_semana, "")
     if pauta:
         versos += f"\nPAUTA DE HOJE ({dia_semana}): {pauta}. Se a notícia escolhida for um caso real ou uma "\
-                  "jurisprudência, o story da notícia usa o tipo caso_real ou jurisprudencia.\n"
+                  "jurisprudência, os dois stories da notícia usam o tipo caso_real ou jurisprudencia.\n"
     pedido = f"""Escreva os {quantos} stories de {dia_semana}, {hoje:%d/%m/%Y}.
 
-Eles giram em torno de um tema do dia, mas CADA STORY SE SUSTENTA SOZINHO: quem vê só aquele story
-entende tudo, sem depender do anterior. NÃO faça stories de conexão ou de ligação: nada de título ou
-começo que só emenda com o story anterior ou puxa o próximo ("E o que isso muda pra você?", "E se...?",
-"E quanto tempo eu tenho?", "E como funciona...?", "Agora, a parte que pouca gente sabe:", "Agora, uma
-curiosidade", "Resumindo:", "Para fechar"). Todo título diz o assunto do próprio story.
+Eles saem em DOIS MOMENTOS do dia, e em cada momento os stories saem colados, um atrás do outro:
+  - 8h: o bom_dia e a notícia (stories 1 a 3);
+  - 11h30: o tema do dia completo, do começo ao fim (os demais stories).
+Cada momento é UMA SEQUÊNCIA, como uma conversa com começo, meio e fim: cada story faz sentido depois
+do anterior e puxa o próximo. Ganchos de ligação são bem-vindos DENTRO do momento ("E se...?",
+"Agora, a parte que pouca gente sabe:", "Resumindo:"). O primeiro story das 11h30 abre o tema sozinho,
+sem depender da notícia das 8h (quem chega às 11h30 tem que entender).
 
 1. Escolha o TEMA DO DIA entre: {", ".join(TEMAS)}. Prefira o que combina com a notícia escolhida
    e evite repetir os temas dos últimos dias: {", ".join(hist.get("temas", [])[-4:]) or "nenhum"}.
 2. Story 1, tipo "bom_dia": {PERFIL["bom_dia"].replace("{dia}", dia_semana) if "titulo" in PERFIL["bom_dia"] else 'titulo "Bom dia" (ou "Boa ' + dia_semana + '"); ' + PERFIL["bom_dia"]}.
-3. Story 2, tipo "noticia": UMA notícia da lista abaixo, ligada ao tema, contada num ÚNICO story
-   (com o número em "noticia" e a "fonte" "Veículo · dd/mm"): titulo = manchete com suas palavras
-   (até 70 caracteres); texto = resumo da matéria (até 220 caracteres); comentario = 1 frase dizendo
-   o que isso muda na prática para as pessoas (até 90). Não faça um segundo story sobre a mesma notícia.
+3. Stories 2 e 3, tipo "noticia": UMA notícia da lista abaixo, ligada ao tema, contada em
+   DOIS stories seguidos (os dois com o mesmo número em "noticia" e a mesma "fonte" "Veículo · dd/mm"):
+   - o primeiro conta o que aconteceu: titulo = manchete com suas palavras (até 70 caracteres);
+     texto = resumo da matéria (até 220 caracteres); comentario vazio;
+   - o segundo explica o que isso muda na vida das pessoas: titulo curto (ex.: "E o que isso muda pra
+     você?"); texto até 200 caracteres; comentario = 1 frase que antecipa o tema das 11h30 (até 90).
    A pessoa não vai abrir link: o resumo tem que se bastar. Use só fatos do resumo da lista.
    Se não houver notícia adequada, faça um story "pergunta" que introduz o tema.
-4. Demais stories: cada um traz UMA informação completa e útil sobre o tema (o que é, quem tem direito,
-   um prazo, um erro comum, o que fazer), com tipo igual ao tema ({PERFIL["tipos_do_tema"]})
-   ou "dica"/"pergunta". Uma "pergunta" já traz a resposta no próprio texto.
+4. Stories das 11h30: desenvolvem o tema em passos lógicos (abre o tema → o que é → por que acontece →
+   prazos ou consequências → o que fazer), com tipo igual ao tema ({PERFIL["tipos_do_tema"]})
+   ou "dica"/"pergunta", ligados entre si.
 {("4b. STORY PESSOAL: " + PERFIL["story_pessoal"]) if PERFIL.get("story_pessoal") else ""}
-5. Último story: uma dica prática que vale sozinha (não um resumo dos anteriores), com rodape
-   "dúvidas? manda no direct".
+5. Último story: fecha a sequência das 11h30 com um resumo curto e rodape "dúvidas? manda no direct".
    Só o último tem rodape; nos outros, rodape vazio.
 Limites: titulo até 60 caracteres e texto até 170 (exceto bom_dia e notícia, acima).
 "fonte" vazio e "noticia" = 0 quando não for notícia; "comentario" vazio quando não for notícia, exceto no
 bom_dia se as instruções do bom_dia pedirem uma frase de fechamento.
 "fundo": escolha um destes: {fundos} ({PERFIL["fundos_dica"]}).
-"bloco": os stories saem ao longo do dia em BLOCOS; os do mesmo bloco saem juntos, um atrás do outro.
-Agrupe stories de assunto parecido no mesmo bloco. O bom_dia é sozinho no bloco 1. Numere os blocos em ordem (1, 2, 3...), de 1 a 3 stories
-por bloco, entre 3 e 5 blocos no dia.
+"bloco": 1 para os stories das 8h (bom_dia e notícia) e 2 para os das 11h30.
 "assunto": 3 a 6 palavras resumindo cada story. Não repita estes assuntos recentes:
 {"; ".join(hist.get("assuntos", [])[-40:]) or "nenhum"}.
 
@@ -228,8 +229,9 @@ if PERFIL.get("exemplo"):
     EXEMPLO_TEMA, EXEMPLO = PERFIL["exemplo"]["tema"], PERFIL["exemplo"]["stories"]
 
 
-PRIMEIRO_STORY = os.environ.get("PRIMEIRO_STORY", "08:00")   # o dia começa às 8h
-ULTIMO_BLOCO = os.environ.get("ULTIMO_BLOCO", "12:00")   # stories entre 8h e meio-dia
+# Estratégia escolhida pela Dra. em 27/11: dois momentos, cada um uma sequência colada (1 min entre stories)
+MOMENTOS = [h.strip() for h in os.environ.get("MOMENTOS", "08:00,11:30").split(",") if h.strip()]
+ABERTURA = ("bom_dia", "noticia", "caso_real", "jurisprudencia")
 
 
 def _min(h):
@@ -260,16 +262,24 @@ def blocos(stories):
     return grupos
 
 
+def momentos(stories):
+    """Divide o dia nos momentos: o 1º leva o bom_dia e a notícia (no máximo 3 stories); o 2º, o resto."""
+    if len(MOMENTOS) < 2 or not stories:
+        return [list(stories or [])]
+    k = 0
+    while k < len(stories) and k < 3 and (stories[k] or {}).get("tipo") in ABERTURA and \
+            (k == 0 or (stories[k] or {}).get("tipo") != "bom_dia"):
+        k += 1
+    k = max(1, k)
+    return [stories[:k], stories[k:]] if stories[k:] else [stories[:k]]
+
+
 def horarios(n, stories=None):
-    """Primeiro story às 8h; os blocos se espalham até as 20h e, dentro do bloco, saem um atrás do outro
-    (1 minuto de diferença, para a ordem ficar certa)."""
-    grupos = blocos(stories) if stories else [[None]] * n
-    ini, fim = _min(PRIMEIRO_STORY), _min(ULTIMO_BLOCO)
-    passo = (fim - ini) // max(1, len(grupos) - 1) if len(grupos) > 1 else 0
-    passo -= passo % 10
+    """Cada momento (8h e 11h30) sai como uma sequência colada: um story por minuto, na ordem."""
+    stories = list(stories) if stories else [{}] * n
     saida = []
-    for g, grupo in enumerate(grupos):
-        base = ini + g * passo
+    for g, grupo in enumerate(momentos(stories)):
+        base = _min(MOMENTOS[min(g, len(MOMENTOS) - 1)])
         for k in range(len(grupo)):
             m = base + k
             saida.append(f"{m // 60:02d}:{m % 60:02d}")
