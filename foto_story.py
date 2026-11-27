@@ -22,7 +22,8 @@ import publicar as P
 OPCOES_PADRAO = {"texto": "", "sem_texto": False, "sombra": True, "exposicao": None,
                  "posicao": "auto", "faixa": False, "quando": "",
                  "alinhamento": "", "fonte": "normal", "tamanho": "pequeno", "caixa": "", "minusculas": False,
-                 "modelo_indice": -1, "borda": False}
+                 "modelo_indice": -1, "borda": False,
+                 "fotos": [], "divisao": 0, "texto_y": -1, "tamanho_px": 0}
 PEDE_MODELO = r"modelo|refer[eê]ncia|igual (a|à|ao|esse|essa)|mesmo estilo|nesse estilo|nessa pegada|inspira"
 LIMITE_TELEGRAM = 20 * 1024 * 1024        # o Telegram só deixa o robô baixar arquivos de até 20 MB
 
@@ -43,9 +44,17 @@ ESQUEMA = {
         "minusculas": {"type": "boolean"},
         "modelo_indice": {"type": "integer"},
         "borda": {"type": "boolean"},
+        "fotos": {"type": "array", "items": {
+            "type": "object",
+            "properties": {"zoom": {"type": "number"}, "foco_x": {"type": "number"}, "foco_y": {"type": "number"}},
+            "required": ["zoom", "foco_x", "foco_y"], "additionalProperties": False}},
+        "divisao": {"type": "number"},
+        "texto_y": {"type": "number"},
+        "tamanho_px": {"type": "integer"},
     },
     "required": ["texto", "sem_texto", "sombra", "exposicao", "posicao", "faixa", "quando",
-                 "alinhamento", "fonte", "tamanho", "caixa", "minusculas", "modelo_indice", "borda"],
+                 "alinhamento", "fonte", "tamanho", "caixa", "minusculas", "modelo_indice", "borda",
+                 "fotos", "divisao", "texto_y", "tamanho_px"],
     "additionalProperties": False,
 }
 
@@ -62,6 +71,8 @@ def interpretar_simples(legenda):
     o["sem_texto"] = bool(re.search(r"sem (texto|frase|legenda)", b))
     o["faixa"] = bool(re.search(r"com faixa|com fundo", b))
     o["borda"] = bool(re.search(r"com borda|com espa[cç]o", b))
+    if re.search(r"menos parede|mais perto|aproxim|zoom|menos fundo", b):
+        o["fotos"] = [{"zoom": 1.6, "foco_x": -1, "foco_y": -1}] * 6
     if re.search(r"centraliz|no centro|no meio", b):
         o["alinhamento"] = "centro"
     if re.search(r"sem escurecer|n[aã]o escure|foto clara|sem escuro", b):
@@ -96,7 +107,7 @@ def interpretar_simples(legenda):
     return o
 
 
-def interpretar_com_claude(legenda, caminho_foto, cliente=None, video=False):
+def interpretar_com_claude(legenda, caminho_foto, cliente=None, video=False, atual=None, previa=None):
     """Com Claude: entende instruções em frase livre, reconhece a foto de MODELO (quando ela manda uma
     referência de posição de texto) e, se não vier texto, escreve uma frase curta olhando a foto."""
     import gerar_dia as G
@@ -106,7 +117,12 @@ def interpretar_com_claude(legenda, caminho_foto, cliente=None, video=False):
     for k, c in enumerate(fotos):
         with open(c, "rb") as f:
             dados = base64.b64encode(f.read()).decode()
-        conteudo += [{"type": "text", "text": f"Imagem {k}:"},
+        conteudo += [{"type": "text", "text": f"Imagem {k} (foto original):"},
+                     {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": dados}}]
+    if previa and os.path.exists(previa):
+        with open(previa, "rb") as f:
+            dados = base64.b64encode(f.read()).decode()
+        conteudo += [{"type": "text", "text": "PRÉVIA ATUAL (o story como está agora, que ela quer corrigir):"},
                      {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": dados}}]
     pedido = (
         "A Dra. mandou " + ("um VÍDEO (a imagem 0 é um quadro do meio dele)" if video else
@@ -133,10 +149,24 @@ def interpretar_com_claude(legenda, caminho_foto, cliente=None, video=False):
         "- borda: true só se ela pediu borda/espaço entre as fotos da colagem (o padrão é sem borda).\n"
         "- 'mais centralizado' = alinhamento centro; 'suba o texto' = posicao topo ou meio (o que ficar mais alto que "
         "antes sem cobrir rosto); 'desça o texto' = base. Siga cada pedido dela à risca.\n"
-        "- quando: \"agora\", um horário \"HH:MM\" ou \"\" (sem pedido).")
+        "- quando: \"agora\", um horário \"HH:MM\" ou \"\" (sem pedido).\n"
+        "- fotos: um ajuste por foto original, na ordem (Imagem 0, 1, ...): zoom (1 = foto inteira no quadro; 1.5 = "
+        "50% mais perto; até 3), foco_x e foco_y (0 a 1: o ponto da foto ORIGINAL que fica no centro do quadro; "
+        "-1 = automático pelo rosto). Ex.: 'menos parede', 'mais perto', 'aproxima' = zoom 1.4 a 1.8 com o foco na "
+        "pessoa; 'mostra mais', 'afasta' = zoom 1; 'sobe a foto' = foco_y maior; 'desce a foto' = foco_y menor. "
+        "Na colagem, 'foto de cima' = Imagem 0, 'foto de baixo' = a última. Lista vazia = tudo automático.\n"
+        "- divisao: na colagem de 2 fileiras, quanto da altura fica com a de cima (0.3 a 0.7); 0 = metade.\n"
+        "- texto_y: altura do começo do texto em % da tela (0 = topo, 100 = pé); -1 = automático. 'Sobe o texto' = "
+        "diminua bem (uns 15 pontos); 'desce' = aumente. Nunca em cima do rosto nem na emenda entre fotos.\n"
+        "- tamanho_px: tamanho exato da letra em pixels numa tela de 1080 de largura (story do dia a dia ~ 40 a 48); "
+        "0 = usar 'tamanho'.\n"
+        + (f"\nAJUSTES ATUAIS DA PRÉVIA (comece deles e mude SÓ o que ela pediu agora, de um jeito que dê para "
+           f"ver a diferença; mantenha o resto igual):\n{json.dumps(atual, ensure_ascii=False)}\n" if atual else "")
+        + "\nObedeça TODOS os pedidos dela, um por um. Se algo não der para fazer, chegue o mais perto possível.")
     resp = cliente.beta.messages.create(
         model=G.MODELO, max_tokens=2000, betas=["server-side-fallback-2026-07-01"], fallbacks="default",
-        system=G.REGRAS, output_config={"effort": "low", "format": {"type": "json_schema", "schema": ESQUEMA}},
+        system=G.REGRAS, output_config={"effort": "medium" if atual else "low",
+                                        "format": {"type": "json_schema", "schema": ESQUEMA}},
         messages=[{"role": "user", "content": conteudo + [{"type": "text", "text": pedido}]}])
     if resp.stop_reason in ("refusal", "max_tokens"):
         raise RuntimeError("o Claude não conseguiu ler as instruções")
@@ -149,11 +179,11 @@ def interpretar_com_claude(legenda, caminho_foto, cliente=None, video=False):
     return o
 
 
-def interpretar(legenda, caminho_foto, video=False):
+def interpretar(legenda, caminho_foto, video=False, atual=None, previa=None):
     fotos = caminho_foto if isinstance(caminho_foto, (list, tuple)) else [caminho_foto]
     if os.environ.get("ANTHROPIC_API_KEY"):
         try:
-            return interpretar_com_claude(legenda, fotos, video=video)
+            return interpretar_com_claude(legenda, fotos, video=video, atual=atual, previa=previa)
         except Exception as e:  # sem Claude, ainda dá para fazer pelo jeito simples
             print("Claude indisponível, uso as palavras-chave:", e)
     o = interpretar_simples(legenda)
@@ -297,7 +327,7 @@ def processar(msg, chat, _tg, agora=None, _baixar=None):
         os.remove(o)                          # os originais não ficam guardados no repositório
     quando = _programar([nome], opcoes.get("quando", ""), agora, status="aguardando")
     ULTIMA.clear()
-    ULTIMA.update({"ids": ids[:6], "legenda": legenda, "arquivo": nome})
+    ULTIMA.update({"ids": ids[:6], "legenda": legenda, "arquivo": nome, "opcoes": opcoes})
     tipo = "da colagem" if len(usar) > 1 else "do story"
     _tg("sendPhoto", {"chat_id": chat, "caption": f"Prévia {tipo}. " + _pedido_ok(quando, agora)},
         [("photo", os.path.join(P.PASTA_STORIES, nome))])
@@ -322,7 +352,8 @@ def corrigir(pend, correcao, chat, _tg, agora=None, _baixar=None):
     pedido = (f"CORREÇÃO NOVA (vale mais que tudo): {correcao}\n"
               + "".join(f"Correção anterior (continua valendo): {c}\n" for c in reversed(antes))
               + f"Pedido original: {pend.get('legenda') or '(nenhum)'}")
-    opcoes = interpretar(pedido, originais)
+    antigo = os.path.join(P.PASTA_STORIES, pend["arquivo"])
+    opcoes = interpretar(pedido, originais, atual=pend.get("opcoes"), previa=antigo)
     if not re.search(r'[“"]', correcao) and not opcoes.get("sem_texto"):
         orig = interpretar_simples(pend.get("legenda", ""))     # sem texto novo entre aspas: mantém o texto dela
         if orig.get("texto"):
@@ -334,7 +365,6 @@ def corrigir(pend, correcao, chat, _tg, agora=None, _baixar=None):
     arte_sobria.desenhar_foto(usar[:5] if len(usar) > 1 else usar[0], opcoes, os.path.join(P.PASTA_STORIES, nome))
     for o in originais:
         os.remove(o)
-    antigo = os.path.join(P.PASTA_STORIES, pend["arquivo"])
     if pend["arquivo"] != nome and os.path.exists(antigo):
         os.remove(antigo)
     _tg("sendPhoto", {"chat_id": chat, "caption": "Prévia corrigida. Responda OK para postar agora, "

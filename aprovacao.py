@@ -350,7 +350,8 @@ def ler_respostas(_tg=None, agora=None):
                 and any(l["arquivo"] == pend.get("arquivo") for l in espera)):
             try:                                          # correção da prévia: refaz e manda de novo
                 import foto_story
-                novo, _ = foto_story.corrigir(pend, texto_msg, chat, _tg, agora)
+                novo, op = foto_story.corrigir(pend, texto_msg, chat, _tg, agora)
+                pend["opcoes"] = op
                 for l in espera:
                     if l["arquivo"] == pend["arquivo"]:
                         l["arquivo"] = novo

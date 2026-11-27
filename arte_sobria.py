@@ -264,9 +264,29 @@ def maquina(tam):
     return ImageFont.truetype(os.path.join(A.AQUI, "fontes", arq), int(tam))
 
 
-def encaixar(ft, tam):
-    """Recorta a foto no tamanho do quadro sem cortar o rosto: o rosto fica inteiro, um pouco acima do meio."""
+def encaixar(ft, tam, ajuste=None):
+    """Recorta a foto no tamanho do quadro sem cortar o rosto: o rosto fica inteiro, um pouco acima do meio.
+    ajuste = {"zoom": 1.6, "foco_x": 0.5, "foco_y": 0.4}: aproxima e centraliza naquele ponto da foto (-1 = rosto)."""
     w, h = tam
+    aj = ajuste or {}
+    zoom = min(3.0, max(1.0, float(aj.get("zoom") or 1)))
+    fx, fy = aj.get("foco_x", -1), aj.get("foco_y", -1)
+    if zoom > 1.01 or (fx is not None and fx >= 0) or (fy is not None and fy >= 0):
+        esc = max(w / ft.width, h / ft.height) * zoom
+        cw, ch = w / esc, h / esc                              # pedaço da foto original que cabe no quadro
+        faces = rostos(ft)
+        if faces:
+            fc = max(faces, key=lambda f: (f[2] - f[0]) * (f[3] - f[1]))
+            px, py = (fc[0] + fc[2]) / 2, fc[1] + (fc[3] - fc[1]) * 0.9   # rosto + começo do corpo
+        else:
+            px, py = ft.width / 2, ft.height * 0.42
+        cx = fx * ft.width if fx is not None and fx >= 0 else px
+        cy = fy * ft.height if fy is not None and fy >= 0 else py
+        x0 = min(max(0, cx - cw / 2), ft.width - cw)
+        y0 = min(max(0, cy - ch / 2), ft.height - ch)
+        if faces and not (fy is not None and fy >= 0):         # automático: não corta o alto da cabeça
+            y0 = max(0, min(y0, fc[1]))
+        return ft.crop((int(x0), int(y0), int(x0 + cw), int(y0 + ch))).resize((w, h), Image.LANCZOS)
     esc = max(w / ft.width, h / ft.height)
     sw, sh = ft.width * esc, ft.height * esc
     faces = rostos(ft)
@@ -288,22 +308,32 @@ def encaixar(ft, tam):
     return ImageOps.fit(ft, (w, h), centering=(cx, cy))
 
 
-def grade(fotos, gap=0):
+def grade(fotos, gap=0, ajustes=None, divisao=0):
     """Colagem no estilo 'Layout' do Instagram: 1, 2, 3 (1+2), 4 (2+2) ou 5 (1+2+2) fotos, sem borda
     (a não ser que ela peça), cada foto enquadrada pelo rosto."""
     n = max(1, min(5, len(fotos)))
     fileiras = {1: [1], 2: [1, 1], 3: [1, 2], 4: [2, 2], 5: [1, 2, 2]}[n]
     img = Image.new("RGB", (W, H), (0, 0, 0))
     alt = (H - gap * (len(fileiras) - 1)) // len(fileiras)
+    alturas = [alt] * len(fileiras)
+    if len(fileiras) == 2 and divisao and 0.25 <= divisao <= 0.75:      # ela pode pedir uma foto maior que a outra
+        alturas = [int((H - gap) * divisao), 0]
+        alturas[1] = H - gap - alturas[0]
+    ajustes = list(ajustes or [])
+    cortes = []
     i, y = 0, 0
-    for cols in fileiras:
+    for r, cols in enumerate(fileiras):
+        alt = alturas[r]
         larg = (W - gap * (cols - 1)) // cols
         for c in range(cols):
             ft = ImageOps.exif_transpose(Image.open(fotos[i])).convert("RGB")
-            img.paste(encaixar(ft, (larg, alt)), (c * (larg + gap), y))
+            img.paste(encaixar(ft, (larg, alt), ajustes[i] if i < len(ajustes) else None), (c * (larg + gap), y))
             i += 1
         y += alt + gap
-    return img, fileiras, alt
+        if r < len(fileiras) - 1:
+            cortes.append(y - gap / 2)
+    grade.cortes = cortes
+    return img, fileiras, alturas[-1]
 
 
 def texto_colagem(img, texto, fileiras, alt, gap=8):
@@ -428,10 +458,11 @@ def desenhar(story, caminho):
 
 def desenhar_colagem(fotos, opcoes, destino):
     """Várias fotos mandadas juntas pela Dra. viram uma colagem de rotina."""
-    img, fil, alt = grade(fotos, gap=8 if opcoes.get("borda") else 0)
+    img, fil, alt = grade(fotos, gap=8 if opcoes.get("borda") else 0, ajustes=opcoes.get("fotos"),
+                          divisao=opcoes.get("divisao") or 0)
     texto = "" if opcoes.get("sem_texto") else (opcoes.get("texto") or "").strip()
     if texto:                      # mesmo texto das fotos soltas: segue posição, tamanho e alinhamento pedidos
-        pl = plano_texto(img, texto, opcoes)
+        pl = plano_texto(img, texto, opcoes, cortes=grade.cortes)
         if not opcoes.get("exposicao") and pl["caixa"] == "nenhuma":
             escurecer(img, [_caixa_texto(pl)])
         escrever(img, pl, 0.75 if opcoes.get("sombra", True) else 0)
@@ -453,10 +484,10 @@ def _luz(img, caixa):
     return st.mean[0], st.stddev[0]
 
 
-def melhor_y(img, alt, x0=60, x1=W - 60):
+def melhor_y(img, alt, x0=60, x1=W - 60, faces=None):
     """Procura a faixa da foto mais escura e mais lisa para o texto branco ficar visível, fora do rosto."""
     cands = list(range(A.TOPO_SEGURO + 60, max(A.TOPO_SEGURO + 61, A.BASE_SEGURA - 140 - alt), 30))
-    faces = rostos(img)
+    faces = rostos(img) if faces is None else faces
     sem_rosto = [y for y in cands if livre((x0, y, x1, y + alt), faces)]
     cands = sem_rosto or cands
     return min(cands, key=lambda y: sum(_luz(img, (x0, y, x1, y + alt))[k] * (1, 1.5)[k] for k in (0, 1)))
@@ -468,10 +499,14 @@ def fator_contraste(img, caixa, alvo=100, minimo=0.45):
     return 1.0 if m <= alvo else max(minimo, alvo / m)
 
 
-def plano_texto(base, texto, o):
-    """Decide fonte, linhas, posição e alinhamento do texto (seguindo as instruções ou o modelo dela)."""
+def plano_texto(base, texto, o, cortes=()):
+    """Decide fonte, linhas, posição e alinhamento do texto (seguindo as instruções ou o modelo dela).
+    cortes = emendas entre fotos da colagem: o texto nunca fica em cima delas."""
     tam_nome = o.get("tamanho") or "pequeno"
     tam = TAMANHOS.get(tam_nome, 44)
+    if o.get("tamanho_px") and 24 <= o["tamanho_px"] <= 140:
+        tam = o["tamanho_px"]
+        tam_nome = "pequeno" if tam <= 50 else "medio"
     papel = "texto" if tam_nome == "pequeno" else "titulo"
     f = maquina(tam * 0.8) if o.get("fonte") == "maquina" else fonte(papel, tam)
     if o.get("minusculas"):
@@ -482,13 +517,19 @@ def plano_texto(base, texto, o):
     asc, desc = f.getmetrics()
     passo = asc + desc + 16 if caixa == "faixa" else int((asc + desc) * 1.18)
     alt = len(linhas) * passo + (90 if caixa == "cartao" else 0)
+    evitar = rostos(base) + [(0, c - 60, W, c + 60) for c in cortes]
     pos = o.get("posicao") or "auto"
-    if pos == "auto":
-        y = melhor_y(base, alt)
+    ty = o.get("texto_y", -1)
+    if ty is not None and 0 <= ty <= 100:                 # posição exata pedida por ela
+        y = int(min(max(A.TOPO_SEGURO + 20, ty / 100 * H), A.BASE_SEGURA - 110 - alt))
+        y = escolher_y(base, alt, y, evitar)
+        pos = "topo" if y < H * 0.33 else ("base" if y > H * 0.55 else "meio")
+    elif pos == "auto":
+        y = melhor_y(base, alt, faces=evitar)
         pos = "topo" if y < H * 0.33 else ("base" if y > H * 0.55 else "meio")
     else:
         y = {"topo": A.TOPO_SEGURO + 80, "meio": int(H * 0.5 - alt / 2), "base": A.BASE_SEGURA - 180 - alt}.get(pos, int(H * 0.5 - alt / 2))
-        y = escolher_y(base, alt, y, rostos(base))      # mesmo pedindo a posição, o texto nunca fica no rosto
+        y = escolher_y(base, alt, y, evitar)      # mesmo pedindo a posição, o texto nunca fica no rosto
     al = {"esquerda": "l", "centro": "c", "direita": "r"}.get(o.get("alinhamento") or "", "c" if pos == "meio" else "l")
     return {"f": f, "linhas": linhas, "y": y, "alt": alt, "alinh": al, "caixa": caixa, "passo": passo}
 
@@ -522,7 +563,8 @@ def desenhar_foto(caminho_foto, opcoes, destino):
             return desenhar_colagem(caminho_foto, opcoes, destino)
         caminho_foto = caminho_foto[0]
     ft = ImageOps.exif_transpose(Image.open(caminho_foto)).convert("RGB")
-    ft = ImageOps.fit(ft, (W, H), centering=(0.5, 0.45))
+    aj = (opcoes.get("fotos") or [None])[0]
+    ft = encaixar(ft, (W, H), aj)
     img = ImageEnhance.Brightness(ft).enhance(opcoes.get("exposicao") or 1.0)
     texto = "" if opcoes.get("sem_texto") else (opcoes.get("texto") or "").strip()
     if texto:
