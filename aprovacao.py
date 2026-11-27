@@ -219,7 +219,8 @@ def ler_respostas(_tg=None, agora=None):
         msg = upd.get("message") or {}
         if str(msg.get("chat", {}).get("id")) != str(chat):
             continue
-        if msg.get("photo") or (msg.get("document") or {}).get("mime_type", "").startswith("image/"):
+        doc = (msg.get("document") or {}).get("mime_type", "")
+        if msg.get("photo") or msg.get("video") or doc.startswith("image/") or doc.startswith("video/"):
             grupo = msg.get("media_group_id")
             if grupo and grupo in vistos:
                 continue
@@ -244,7 +245,10 @@ def ler_respostas(_tg=None, agora=None):
         if msg.get("text", "").strip().lower().startswith("cancelar"):
             futuras = [l for l in linhas if l.get("lote") == "enviada" and l.get("status") == "aprovado"]
             if futuras:
-                futuras[-1]["status"] = "tirado"
+                base = re.sub(r"-parte\d+(?=\.mp4$)", "", futuras[-1]["arquivo"])
+                for l in futuras:                  # vídeo longo: cancela todas as partes juntas
+                    if re.sub(r"-parte\d+(?=\.mp4$)", "", l["arquivo"]) == base:
+                        l["status"] = "tirado"
                 mudou = True
                 _tg("sendMessage", {"chat_id": chat, "text": "Cancelado: o último story enviado por você não vai sair."})
             continue

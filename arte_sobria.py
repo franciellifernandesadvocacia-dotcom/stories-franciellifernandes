@@ -2,7 +2,7 @@
 texto branco numa serifada clássica e fina (Cormorant Garamond), centralizado, sem caixas.
 Inspirado nos stories de frase com café: calmo, elegante, orgânico."""
 import os
-from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps, ImageStat
 
 import arte_natural as A
 
@@ -53,7 +53,7 @@ def texto_com_sombra(img, linhas, y, f, cor=BRANCO, entre=1.18, sombra=0.75, ali
     """Escreve linhas com uma sombra preta difusa atrás (a 'sombra preta'). alinh: c (centro) ou l (esquerda)."""
     asc, desc = f.getmetrics()
     passo = int((asc + desc) * entre)
-    pos = (lambda: (W / 2, "ma")) if alinh == "c" else (lambda: (x, "la"))
+    pos = {"c": lambda: (W / 2, "ma"), "r": lambda: (W - x, "ra")}.get(alinh, lambda: (x, "la"))
     camada = Image.new("L", (W, H), 0)
     dc = ImageDraw.Draw(camada)
     for i, ln in enumerate(linhas):
@@ -78,7 +78,7 @@ def faixas(img, linhas, y, f, cor=BRANCO, fundo=(0, 0, 0, 150), alinh="c", x=90)
     d = ImageDraw.Draw(cam)
     for i, ln in enumerate(linhas):
         w = f.getlength(ln)
-        x0 = (W - w) / 2 if alinh == "c" else x
+        x0 = (W - w) / 2 if alinh == "c" else (W - x - w if alinh == "r" else x)
         yy = y + i * (alt + 16)
         d.rounded_rectangle((x0 - 22, yy - 10, x0 + w + 22, yy + alt + 10), 16, fill=fundo)
         d.text((x0, yy), ln, font=f, fill=cor)
@@ -316,8 +316,77 @@ def desenhar_colagem(fotos, opcoes, destino):
     return destino
 
 
+# ----------------------------------------------------------------- fotos e vídeos mandados pela Dra.
+TAMANHOS = {"pequeno": 46, "medio": 66, "grande": 96}
+
+
+def _luz(img, caixa):
+    """Brilho médio e variação (textura) de um pedaço da imagem."""
+    x0, y0, x1, y1 = [int(v) for v in caixa]
+    reg = img.crop((max(0, x0), max(0, y0), min(W, x1), min(H, y1))).convert("L")
+    reg = reg.resize((64, max(1, int(64 * reg.height / max(1, reg.width)))))
+    st = ImageStat.Stat(reg)
+    return st.mean[0], st.stddev[0]
+
+
+def melhor_y(img, alt, x0=60, x1=W - 60):
+    """Procura a faixa da foto mais escura e mais lisa para o texto branco ficar visível."""
+    cands = list(range(A.TOPO_SEGURO + 60, max(A.TOPO_SEGURO + 61, A.BASE_SEGURA - 140 - alt), 30))
+    return min(cands, key=lambda y: sum(_luz(img, (x0, y, x1, y + alt))[k] * (1, 1.5)[k] for k in (0, 1)))
+
+
+def fator_contraste(img, caixa, alvo=100, minimo=0.45):
+    """Quanto escurecer a foto inteira (só exposição) para o texto branco aparecer bem."""
+    m, _ = _luz(img, caixa)
+    return 1.0 if m <= alvo else max(minimo, alvo / m)
+
+
+def plano_texto(base, texto, o):
+    """Decide fonte, linhas, posição e alinhamento do texto (seguindo as instruções ou o modelo dela)."""
+    tam = TAMANHOS.get(o.get("tamanho") or "medio", 66)
+    f = maquina(tam * 0.8) if o.get("fonte") == "maquina" else fonte("titulo", tam)
+    if o.get("minusculas"):
+        texto = texto.lower()
+    caixa = o.get("caixa") or ("faixa" if o.get("faixa") else "nenhuma")
+    larg = 760 if caixa == "cartao" else 860
+    linhas = A.quebrar(texto, f, larg)
+    asc, desc = f.getmetrics()
+    passo = asc + desc + 16 if caixa == "faixa" else int((asc + desc) * 1.18)
+    alt = len(linhas) * passo + (90 if caixa == "cartao" else 0)
+    pos = o.get("posicao") or "auto"
+    if pos == "auto":
+        y = melhor_y(base, alt)
+        pos = "topo" if y < H * 0.33 else ("base" if y > H * 0.55 else "meio")
+    else:
+        y = {"topo": A.TOPO_SEGURO + 80, "meio": int(H * 0.5 - alt / 2), "base": A.BASE_SEGURA - 180 - alt}.get(pos, int(H * 0.5 - alt / 2))
+    al = {"esquerda": "l", "centro": "c", "direita": "r"}.get(o.get("alinhamento") or "", "c" if pos == "meio" else "l")
+    return {"f": f, "linhas": linhas, "y": y, "alt": alt, "alinh": al, "caixa": caixa, "passo": passo}
+
+
+def escrever(img, pl, sombra=0.75):
+    """Desenha o texto planejado (em RGB ou numa camada transparente para vídeo)."""
+    f, linhas, y, al = pl["f"], pl["linhas"], pl["y"], pl["alinh"]
+    if pl["caixa"] == "faixa":
+        faixas(img, linhas, y, f, BRANCO, (0, 0, 0, 160), alinh=al, x=92)
+    elif pl["caixa"] == "cartao":
+        larg = max(f.getlength(ln) for ln in linhas) + 90
+        x0 = (W - larg) / 2 if al == "c" else (W - 92 - larg if al == "r" else 92)
+        cam = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        d = ImageDraw.Draw(cam)
+        d.rounded_rectangle((x0, y, x0 + larg, y + pl["alt"]), 22, fill=(248, 248, 246, 255))
+        for i, ln in enumerate(linhas):
+            d.text((x0 + 45, y + 45 + i * pl["passo"]), ln, font=f, fill=(45, 43, 41, 255))
+        img.paste(cam, (0, 0), cam)
+    else:
+        texto_com_sombra(img, linhas, y, f, BRANCO, sombra=sombra, alinh=al, x=92)
+
+
+def _caixa_texto(pl):
+    return (60, pl["y"] - 20, W - 60, pl["y"] + pl["alt"] + 20)
+
+
 def desenhar_foto(caminho_foto, opcoes, destino):
-    """Story a partir de uma foto mandada pela Dra., com as instruções dela (sombra, exposição, posição...)."""
+    """Story a partir de uma foto mandada pela Dra., com as instruções dela (posição, fonte, caixa, exposição...)."""
     if isinstance(caminho_foto, (list, tuple)):
         if len(caminho_foto) > 1:
             return desenhar_colagem(caminho_foto, opcoes, destino)
@@ -328,20 +397,28 @@ def desenhar_foto(caminho_foto, opcoes, destino):
     img = ImageEnhance.Brightness(ft).enhance(expo)
     texto = "" if opcoes.get("sem_texto") else (opcoes.get("texto") or "").strip()
     if texto:
-        f = fonte("titulo", 70)
-        linhas = A.quebrar(texto, f, 860)
-        asc, desc = f.getmetrics()
-        alt = len(linhas) * int((asc + desc) * 1.18)
-        pos = opcoes.get("posicao", "auto")
-        if pos == "auto":
-            pos = ["base", "topo", "meio"][len(texto) % 3]
-        y = {"topo": A.TOPO_SEGURO + 80, "meio": int(H * 0.5 - alt / 2), "base": A.BASE_SEGURA - 180 - alt}[pos]
-        alinh = "c" if pos == "meio" else "l"
-        if opcoes.get("faixa"):
-            faixas(img, linhas, y, f, BRANCO, (0, 0, 0, 160), alinh=alinh, x=92)
-        else:
-            texto_com_sombra(img, linhas, y, f, BRANCO, sombra=0.75 if opcoes.get("sombra", True) else 0, alinh=alinh, x=92)
+        pl = plano_texto(img, texto, opcoes)
+        if not opcoes.get("exposicao") and pl["caixa"] == "nenhuma":   # escurece mais só se precisar
+            k = fator_contraste(img, _caixa_texto(pl))
+            if k < 1:
+                img = ImageEnhance.Brightness(img).enhance(k)
+        escrever(img, pl, 0.75 if opcoes.get("sombra", True) else 0)
     marca(img)
     os.makedirs(os.path.dirname(destino), exist_ok=True)
     img.save(destino, quality=88, optimize=True)
     return destino
+
+
+def camada_video(quadro, opcoes):
+    """Para vídeo: devolve (camada transparente com texto e logo, fator de escurecimento do vídeo)."""
+    base = ImageOps.fit(ImageOps.exif_transpose(Image.open(quadro)).convert("RGB"), (W, H))
+    cam = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    k = opcoes.get("exposicao") or 1.0
+    texto = "" if opcoes.get("sem_texto") else (opcoes.get("texto") or "").strip()
+    if texto:
+        pl = plano_texto(ImageEnhance.Brightness(base).enhance(k), texto, opcoes)
+        if not opcoes.get("exposicao") and pl["caixa"] == "nenhuma":
+            k = fator_contraste(base, _caixa_texto(pl))
+        escrever(cam, pl, 0.75 if opcoes.get("sombra", True) else 0)
+    marca(cam)
+    return cam, k

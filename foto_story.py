@@ -13,13 +13,18 @@ import datetime as dt
 import json
 import os
 import re
+import subprocess
 import urllib.request
 
 import arte_natural as A
 import publicar as P
 
 OPCOES_PADRAO = {"texto": "", "sem_texto": False, "sombra": True, "exposicao": None,
-                 "posicao": "auto", "faixa": False, "quando": ""}
+                 "posicao": "auto", "faixa": False, "quando": "",
+                 "alinhamento": "", "fonte": "normal", "tamanho": "medio", "caixa": "", "minusculas": False,
+                 "modelo_indice": -1}
+PEDE_MODELO = r"modelo|refer[eê]ncia|igual (a|à|ao|esse|essa)|mesmo estilo|nesse estilo|nessa pegada|inspira"
+LIMITE_TELEGRAM = 20 * 1024 * 1024        # o Telegram só deixa o robô baixar arquivos de até 20 MB
 
 ESQUEMA = {
     "type": "object",
@@ -31,8 +36,15 @@ ESQUEMA = {
         "posicao": {"type": "string", "enum": ["auto", "topo", "meio", "base"]},
         "faixa": {"type": "boolean"},
         "quando": {"type": "string"},
+        "alinhamento": {"type": "string", "enum": ["", "esquerda", "centro", "direita"]},
+        "fonte": {"type": "string", "enum": ["normal", "maquina"]},
+        "tamanho": {"type": "string", "enum": ["pequeno", "medio", "grande"]},
+        "caixa": {"type": "string", "enum": ["", "nenhuma", "faixa", "cartao"]},
+        "minusculas": {"type": "boolean"},
+        "modelo_indice": {"type": "integer"},
     },
-    "required": ["texto", "sem_texto", "sombra", "exposicao", "posicao", "faixa", "quando"],
+    "required": ["texto", "sem_texto", "sombra", "exposicao", "posicao", "faixa", "quando",
+                 "alinhamento", "fonte", "tamanho", "caixa", "minusculas", "modelo_indice"],
     "additionalProperties": False,
 }
 
@@ -55,6 +67,19 @@ def interpretar_simples(legenda):
     for chave, pos in (("em cima", "topo"), ("no topo", "topo"), ("no meio", "meio"), ("embaixo", "base"), ("em baixo", "base")):
         if chave in b:
             o["posicao"] = pos
+    for chave, al in (("esquerda", "esquerda"), ("direita", "direita"), ("centraliz", "centro")):
+        if chave in b:
+            o["alinhamento"] = al
+    if re.search(r"m[aá]quina de escrever|datilograf", b):
+        o["fonte"] = "maquina"
+    if re.search(r"letra (pequena|menor)|texto pequeno|pequenininh", b):
+        o["tamanho"] = "pequeno"
+    elif re.search(r"letra (grande|maior)|texto grande|bem grande", b):
+        o["tamanho"] = "grande"
+    if re.search(r"cart[aã]o|caixa branca|fundo branco", b):
+        o["caixa"] = "cartao"
+    if re.search(r"min[uú]scul", b):
+        o["minusculas"] = True
     h = re.search(r"\b(?:[àa]s?\s*)?(\d{1,2})\s*(?:h|:)\s*(\d{2})?", b)
     if "agora" in b:
         o["quando"] = "agora"
@@ -63,47 +88,65 @@ def interpretar_simples(legenda):
     return o
 
 
-def interpretar_com_claude(legenda, caminho_foto, cliente=None):
-    """Com Claude: entende instruções em frase livre e, se não vier texto, escreve uma frase curta olhando a foto."""
+def interpretar_com_claude(legenda, caminho_foto, cliente=None, video=False):
+    """Com Claude: entende instruções em frase livre, reconhece a foto de MODELO (quando ela manda uma
+    referência de posição de texto) e, se não vier texto, escreve uma frase curta olhando a foto."""
     import gerar_dia as G
     cliente = cliente or G._cliente()
-    with open(caminho_foto, "rb") as f:
-        dados = base64.b64encode(f.read()).decode()
+    fotos = caminho_foto if isinstance(caminho_foto, (list, tuple)) else [caminho_foto]
+    conteudo = []
+    for k, c in enumerate(fotos):
+        with open(c, "rb") as f:
+            dados = base64.b64encode(f.read()).decode()
+        conteudo += [{"type": "text", "text": f"Imagem {k}:"},
+                     {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": dados}}]
     pedido = (
-        "A Dra. mandou esta foto para virar um story do Instagram " + A.PERFIL["handle"] + ".\n"
-        f"Mensagem dela junto com a foto: {legenda or '(nenhuma)'}\n\n"
+        "A Dra. mandou " + ("um VÍDEO (a imagem 0 é um quadro do meio dele)" if video else
+                            f"{len(fotos)} imagem(ns)") + " para virar story do Instagram " + A.PERFIL["handle"] + ".\n"
+        f"Mensagem dela junto: {legenda or '(nenhuma)'}\n\n"
         "Transforme a mensagem em ajustes:\n"
-        "- texto: se ela escreveu um texto entre aspas, copie exatamente. Se não, escreva UMA frase curta "
-        "(até 90 caracteres), natural e elegante, combinando com a foto e o momento (rotina, café, treino, "
-        "escritório). Nada de promessas, preços ou chamadas para contratar. Sem emojis e sem hashtags.\n"
+        "- modelo_indice: se uma das imagens é só uma REFERÊNCIA de estilo/posição de texto (print de story de outra "
+        "pessoa, ou ela disse 'modelo', 'igual a esse', 'nessa pegada'), o número dessa imagem; senão -1. "
+        "Quando houver modelo, COPIE dele: posicao (topo/meio/base), alinhamento (esquerda/centro/direita), "
+        "fonte (maquina se parecer máquina de escrever, senão normal), tamanho (pequeno/medio/grande), "
+        "caixa (faixa = fundo escuro atrás de cada linha; cartao = caixa branca com letra escura; nenhuma) e "
+        "minusculas (true se o texto do modelo é todo em minúsculas). NUNCA copie o texto do modelo.\n"
+        "- texto: se ela escreveu um texto entre aspas ou disse 'escreva ...', copie exatamente. Se não, escreva UMA "
+        "frase curta (até 90 caracteres), natural e elegante, combinando com a imagem e o momento. Nada de "
+        "promessas, preços ou chamadas para contratar. Sem emojis e sem hashtags.\n"
         "- sem_texto: true só se ela pediu sem texto.\n"
         "- sombra: false só se ela pediu sem sombra.\n"
-        "- exposicao: 1.0 se pediu para não escurecer; 0.45 se pediu mais escuro; caso contrário 0 (= padrão do perfil).\n"
-        "- posicao: topo, meio, base ou auto.\n"
+        "- exposicao: 1.0 se pediu para não escurecer; 0.45 se pediu mais escuro; senão 0 (= automático).\n"
+        "- posicao: topo, meio, base ou auto (auto = o robô acha a parte mais escura da foto).\n"
+        "- alinhamento: esquerda, centro, direita ou \"\" (automático).\n"
         "- faixa: true se pediu faixa/fundo atrás das letras.\n"
         "- quando: \"agora\", um horário \"HH:MM\" ou \"\" (sem pedido).")
     resp = cliente.beta.messages.create(
         model=G.MODELO, max_tokens=2000, betas=["server-side-fallback-2026-07-01"], fallbacks="default",
         system=G.REGRAS, output_config={"effort": "low", "format": {"type": "json_schema", "schema": ESQUEMA}},
-        messages=[{"role": "user", "content": [
-            {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": dados}},
-            {"type": "text", "text": pedido}]}])
+        messages=[{"role": "user", "content": conteudo + [{"type": "text", "text": pedido}]}])
     if resp.stop_reason in ("refusal", "max_tokens"):
         raise RuntimeError("o Claude não conseguiu ler as instruções")
     o = dict(OPCOES_PADRAO)
     o.update(json.loads(G._texto(resp)))
     if not o.get("exposicao"):
         o["exposicao"] = None
+    if not (0 <= o.get("modelo_indice", -1) < len(fotos)) or video:
+        o["modelo_indice"] = -1
     return o
 
 
-def interpretar(legenda, caminho_foto):
+def interpretar(legenda, caminho_foto, video=False):
+    fotos = caminho_foto if isinstance(caminho_foto, (list, tuple)) else [caminho_foto]
     if os.environ.get("ANTHROPIC_API_KEY"):
         try:
-            return interpretar_com_claude(legenda, caminho_foto)
+            return interpretar_com_claude(legenda, fotos, video=video)
         except Exception as e:  # sem Claude, ainda dá para fazer pelo jeito simples
             print("Claude indisponível, uso as palavras-chave:", e)
-    return interpretar_simples(legenda)
+    o = interpretar_simples(legenda)
+    if len(fotos) > 1 and re.search(PEDE_MODELO, (legenda or "").lower()):
+        o["modelo_indice"] = len(fotos) - 1          # sem Claude: a última imagem é o modelo
+    return o
 
 
 def horario(quando, agora, ocupados):
@@ -134,6 +177,72 @@ def baixar_foto_telegram(file_id, destino, _tg):
     return destino
 
 
+# ----------------------------------------------------------------- vídeo
+def ffmpeg():
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except ImportError:
+        return "ffmpeg"
+
+
+def info_video(caminho):
+    """Devolve (duração em segundos, tem_audio) lendo a saída do ffmpeg."""
+    r = subprocess.run([ffmpeg(), "-hide_banner", "-i", caminho], capture_output=True, text=True)
+    m = re.search(r"Duration: (\d+):(\d+):([\d.]+)", r.stderr)
+    dur = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3)) if m else 0.0
+    return dur, "Audio:" in r.stderr
+
+
+PARTE_MAX = 59          # o story de vídeo aceita até 60 s
+PARTES_MAX = 5
+
+
+def montar_video(original, opcoes, destinos_base):
+    """Vídeo do celular -> 1080x1920 H.264, escurecido só se o texto precisar, com o texto e a logo por cima.
+    Vídeo longo vira partes de até 59 s (no máximo 5). Devolve a lista de arquivos .mp4."""
+    import arte_sobria
+    dur, tem_audio = info_video(original)
+    if dur <= 0:
+        raise RuntimeError("não consegui ler esse vídeo")
+    pasta = os.path.dirname(destinos_base)
+    quadro = destinos_base + "-quadro.jpg"
+    subprocess.run([ffmpeg(), "-y", "-ss", f"{dur / 2:.2f}", "-i", original, "-frames:v", "1", quadro],
+                   capture_output=True, check=True)
+    cam, k = arte_sobria.camada_video(quadro, opcoes)
+    os.remove(quadro)
+    camada = destinos_base + "-camada.png"
+    cam.save(camada)
+    n = min(PARTES_MAX, max(1, int((dur - 0.5) // PARTE_MAX) + 1))
+    saidas = []
+    for p in range(n):
+        ini = p * PARTE_MAX
+        out = destinos_base + (f"-parte{p + 1}" if n > 1 else "") + ".mp4"
+        filtro = ("[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30"
+                  + (f",lutrgb=r=val*{k:.3f}:g=val*{k:.3f}:b=val*{k:.3f}" if k < 0.999 else "")
+                  + "[v];[v][1:v]overlay=0:0,format=yuv420p[o]")
+        cmd = [ffmpeg(), "-y", "-ss", str(ini), "-t", str(PARTE_MAX), "-i", original, "-loop", "1", "-i", camada]
+        if not tem_audio:
+            cmd += ["-f", "lavfi", "-t", str(PARTE_MAX), "-i", "anullsrc=r=44100:cl=stereo"]
+        cmd += ["-filter_complex", filtro, "-map", "[o]", "-map", "0:a" if tem_audio else "2:a",
+                "-shortest", "-c:v", "libx264", "-preset", "veryfast", "-crf", "24", "-maxrate", "3M",
+                "-bufsize", "6M", "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-movflags", "+faststart", out]
+        r = subprocess.run(cmd, capture_output=True, text=True)
+        if r.returncode != 0:
+            raise RuntimeError("o ffmpeg não conseguiu montar o vídeo: " + r.stderr[-300:])
+        saidas.append(out)
+    os.remove(camada)
+    return saidas, dur
+
+
+def _e_video(m):
+    return bool(m.get("video") or (m.get("document") or {}).get("mime_type", "").startswith("video/"))
+
+
+def _e_foto(m):
+    return bool(m.get("photo") or (m.get("document") or {}).get("mime_type", "").startswith("image/"))
+
+
 def processar(msg, chat, _tg, agora=None, _baixar=None):
     """Recebe a mensagem do Telegram com foto (ou um álbum: lista de mensagens), cria o story e põe na
     fila já aprovado (foi ela quem mandou). Várias fotos juntas viram uma colagem de rotina."""
@@ -141,28 +250,47 @@ def processar(msg, chat, _tg, agora=None, _baixar=None):
     import arte_sobria
     agora = agora or dt.datetime.now(P.fuso())
     msgs = msg if isinstance(msg, list) else [msg]
+    legenda = next((m.get("caption") for m in msgs if m.get("caption")), "")
+    pasta = os.path.join(P.PASTA_STORIES, agora.strftime("%Y-%m-%d"))
+    os.makedirs(pasta, exist_ok=True)
+    marca = agora.strftime("%H%M%S")
+    videos = [m for m in msgs if _e_video(m)]
+    if videos:
+        return processar_video(videos[0], legenda, chat, _tg, agora, pasta, marca, _baixar)
     ids = []
     for m in msgs:
+        if not _e_foto(m):
+            continue
         fotos = m.get("photo") or []
         fid = fotos[-1]["file_id"] if fotos else (m.get("document") or {}).get("file_id")
         if fid:
             ids.append(fid)
     if not ids:
         return None
-    legenda = next((m.get("caption") for m in msgs if m.get("caption")), "")
-    pasta = os.path.join(P.PASTA_STORIES, agora.strftime("%Y-%m-%d"))
-    os.makedirs(pasta, exist_ok=True)
-    marca = agora.strftime("%H%M%S")
     originais = []
-    for k, fid in enumerate(ids[:5]):
+    for k, fid in enumerate(ids[:6]):
         o = os.path.join(pasta, f"enviada-{marca}-original-{k}.jpg")
         (_baixar or baixar_foto_telegram)(fid, o, _tg)
         originais.append(o)
-    opcoes = interpretar(legenda, originais[0])
+    opcoes = interpretar(legenda, originais)
+    usar = list(originais)
+    if 0 <= opcoes.get("modelo_indice", -1) < len(usar) and len(usar) > 1:
+        usar.pop(opcoes["modelo_indice"])     # a imagem de modelo só ensina o estilo; não entra no story
     nome = f"{agora:%Y-%m-%d}/enviada-{marca}.jpg"
-    arte_sobria.desenhar_foto(originais if len(originais) > 1 else originais[0], opcoes, os.path.join(P.PASTA_STORIES, nome))
+    arte_sobria.desenhar_foto(usar[:5] if len(usar) > 1 else usar[0], opcoes, os.path.join(P.PASTA_STORIES, nome))
     for o in originais:
         os.remove(o)                          # os originais não ficam guardados no repositório
+    quando = _programar([nome], opcoes.get("quando", ""), agora)
+    tipo = "Colagem" if len(usar) > 1 else ("Story no estilo do modelo" if opcoes.get("modelo_indice", -1) >= 0 else "Story")
+    resumo = "sem texto" if opcoes.get("sem_texto") else f'texto: "{opcoes.get("texto", "")}"'
+    _tg("sendPhoto", {"chat_id": chat, "caption":
+        f"{tipo} programado para {quando:%d/%m às %H:%M} ({resumo}). Para cancelar, responda CANCELAR."},
+        [("photo", os.path.join(P.PASTA_STORIES, nome))])
+    return nome
+
+
+def _programar(nomes, quando_pedido, agora):
+    import aprovacao
     campos, linhas = aprovacao.ler_linhas()
     ocupados = []
     for l in linhas:
@@ -172,13 +300,36 @@ def processar(msg, chat, _tg, agora=None, _baixar=None):
             ocupados.append(P._data_hora(l["data"], l["hora"]))
         except (ValueError, KeyError):
             pass
-    quando = horario(opcoes.get("quando", ""), agora, ocupados)
-    linhas.append({"arquivo": nome, "data": quando.strftime("%Y-%m-%d"), "hora": quando.strftime("%H:%M"),
-                   "status": "aprovado", "lote": "enviada"})
+    quando = horario(quando_pedido, agora, ocupados)
+    for nome in nomes:                       # partes de um vídeo longo saem em seguida, na mesma rodada
+        linhas.append({"arquivo": nome, "data": quando.strftime("%Y-%m-%d"), "hora": quando.strftime("%H:%M"),
+                       "status": "aprovado", "lote": "enviada"})
     aprovacao.gravar_linhas(campos or ["arquivo", "data", "hora", "status", "lote"], linhas)
-    tipo = "Colagem" if len(originais) > 1 else "Story"
+    return quando
+
+
+def processar_video(m, legenda, chat, _tg, agora, pasta, marca, _baixar=None):
+    v = m.get("video") or m.get("document") or {}
+    if v.get("file_size", 0) > LIMITE_TELEGRAM:
+        _tg("sendMessage", {"chat_id": chat, "text":
+            "Esse vídeo passa de 20 MB, e o Telegram não deixa o robô baixar. Mande de novo sem marcar "
+            "\"enviar como arquivo\" (o Telegram comprime) ou mande um trecho mais curto."})
+        return None
+    original = os.path.join(pasta, f"enviada-{marca}-original.mp4")
+    (_baixar or baixar_foto_telegram)(v["file_id"], original, _tg)
+    quadro = os.path.join(pasta, f"enviada-{marca}-q.jpg")
+    dur, _ = info_video(original)
+    subprocess.run([ffmpeg(), "-y", "-ss", f"{dur / 2:.2f}", "-i", original, "-frames:v", "1", quadro], capture_output=True)
+    opcoes = interpretar(legenda, quadro, video=True)
+    os.remove(quadro)
+    saidas, dur = montar_video(original, opcoes, os.path.join(pasta, f"enviada-{marca}"))
+    os.remove(original)
+    nomes = [os.path.relpath(s, P.PASTA_STORIES).replace(os.sep, "/") for s in saidas]
+    quando = _programar(nomes, opcoes.get("quando", ""), agora)
     resumo = "sem texto" if opcoes.get("sem_texto") else f'texto: "{opcoes.get("texto", "")}"'
-    _tg("sendPhoto", {"chat_id": chat, "caption":
-        f"{tipo} programado para {quando:%d/%m às %H:%M} ({resumo}). Para cancelar, responda CANCELAR."},
-        [("photo", os.path.join(P.PASTA_STORIES, nome))])
-    return nome
+    partes = f" em {len(nomes)} partes de até {PARTE_MAX} s" if len(nomes) > 1 else ""
+    corte = " (vídeo longo: usei só os primeiros 5 minutos)" if dur > PARTE_MAX * PARTES_MAX else ""
+    _tg("sendVideo", {"chat_id": chat, "caption":
+        f"Vídeo programado para {quando:%d/%m às %H:%M}{partes}{corte} ({resumo}). Para cancelar, responda CANCELAR."},
+        [("video", saidas[0])])
+    return nomes[0]

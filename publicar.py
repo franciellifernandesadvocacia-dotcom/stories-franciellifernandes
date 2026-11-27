@@ -170,6 +170,10 @@ def conferir_imagem(arquivo, pasta=None):
     if not os.path.exists(p):
         return [f"{arquivo}: arquivo não está na pasta stories/"]
     probs = []
+    if arquivo.lower().endswith(".mp4"):          # vídeo: o Instagram aceita até 100 MB e 60 s no story
+        if os.path.getsize(p) > 100 * 1024 * 1024:
+            probs.append(f"{arquivo}: vídeo maior que 100 MB")
+        return probs
     if os.path.getsize(p) > TAM_MAX_BYTES:
         probs.append(f"{arquivo}: maior que 8 MB")
     try:
@@ -228,8 +232,10 @@ class Instagram:
     def publicar_story(self, image_url):
         if not self.user_id:
             self.conta()
-        cont = self._chamar("POST", f"{self.user_id}/media", {"image_url": image_url, "media_type": "STORIES"})["id"]
-        for _ in range(24):  # até ~2 minutos esperando a Meta processar a imagem
+        video = image_url.lower().split("?")[0].endswith(".mp4")
+        campo = "video_url" if video else "image_url"
+        cont = self._chamar("POST", f"{self.user_id}/media", {campo: image_url, "media_type": "STORIES"})["id"]
+        for _ in range(72 if video else 24):  # imagem: até ~2 min; vídeo: até ~6 min de processamento na Meta
             st = self._chamar("GET", cont, {"fields": "status_code"}).get("status_code")
             if st == "FINISHED":
                 break
