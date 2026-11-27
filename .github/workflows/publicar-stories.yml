@@ -62,7 +62,7 @@ jobs:
           if [ -n "$(git status --porcelain registro.csv fila.csv estado.json stories)" ]; then
             git config user.name "publicador-stories"
             git config user.email "actions@users.noreply.github.com"
-            git add -A registro.csv fila.csv estado.json stories
+            for f in registro.csv fila.csv estado.json stories; do [ -e "$f" ] && git add -A "$f"; done
             git commit -m "registro: $(date -u +%Y-%m-%dT%H:%MZ)"
             git pull --rebase && git push
           fi

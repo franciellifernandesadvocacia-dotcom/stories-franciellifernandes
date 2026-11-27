@@ -39,7 +39,11 @@ jobs:
         run: |
           if ls fotos.enc.parte-* >/dev/null 2>&1; then
             if [ -z "$FOTOS_CHAVE" ]; then echo "::error::Falta o segredo FOTOS_CHAVE"; exit 1; fi
-            cat fotos.enc.parte-* | openssl enc -d -aes-256-cbc -pbkdf2 -pass env:FOTOS_CHAVE | tar -xf -
+            # aceita a chave colada com o texto de explicação junto ou com espaços: usa só a última linha com conteúdo
+            FOTOS_CHAVE="$(printf '%s\n' "$FOTOS_CHAVE" | tr -d '\r' | awk 'NF{l=$0} END{print l}' | tr -d ' \t')"
+            export FOTOS_CHAVE
+            cat fotos.enc.parte-* | openssl enc -d -aes-256-cbc -pbkdf2 -pass env:FOTOS_CHAVE | tar -xf - \
+              || { echo "::error::A FOTOS_CHAVE salva no GitHub não abre as fotos. Cole de novo só a última linha do arquivo CHAVE DAS FOTOS."; exit 1; }
             echo "$(ls fotos | wc -l) fotos prontas"
           fi
 
@@ -65,8 +69,7 @@ jobs:
         run: |
           git config user.name "gerador-stories"
           git config user.email "actions@users.noreply.github.com"
-          git add -A stories fila.csv
-          for f in historico.json docs; do [ -e "$f" ] && git add -A "$f"; done
+          for f in stories fila.csv historico.json docs; do [ -e "$f" ] && git add -A "$f"; done
           if ! git diff --cached --quiet; then
             git commit -m "stories gerados: $(date -u +%Y-%m-%d)"
             git pull --rebase && git push
