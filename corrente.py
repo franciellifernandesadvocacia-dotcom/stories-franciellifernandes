@@ -3,7 +3,7 @@ Robô em corrente: não depende do relógio do GitHub (que atrasa ou nem dispara
 
 Cada rodada fica acordada até ~5h20 dentro do GitHub Actions:
   - na hora exata de cada story, publica (roda o publicar.py normal);
-  - durante o dia, a cada 10 min, lê o Telegram (fotos, CASO, NÃO 3...);
+  - durante o dia, a cada minuto, lê o Telegram (fotos, CASO, NÃO 3...);
   - às 19h, se amanhã ainda não tem stories, aciona a geração;
   - antes de acabar o tempo, o workflow aciona a próxima rodada (passa a vez).
 
@@ -24,8 +24,8 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 ESTADO_CORRENTE = os.path.join(AQUI, "corrente.json")
 LIMITE_S = float(os.environ.get("CORRENTE_HORAS", "5.3")) * 3600
 HORA_GERAR = 19
-DIA_INI, DIA_FIM = 7, 22          # entre 7h e 22h confere o Telegram a cada 10 min
-PASSO_DIA = dt.timedelta(minutes=10)
+DIA_INI, DIA_FIM = 7, 22          # entre 7h e 22h confere o Telegram a cada minuto
+PASSO_DIA = dt.timedelta(minutes=1)     # de dia lê o Telegram a cada minuto (foto dela sai na hora)
 PASSO_NOITE = dt.timedelta(minutes=30)
 ARQUIVOS = ("registro.csv", "fila.csv", "estado.json", "stories", "corrente.json")
 

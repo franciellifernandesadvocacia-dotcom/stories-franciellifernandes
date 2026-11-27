@@ -412,7 +412,7 @@ def desenhar_colagem(fotos, opcoes, destino):
 
 
 # ----------------------------------------------------------------- fotos e vídeos mandados pela Dra.
-TAMANHOS = {"pequeno": 46, "medio": 66, "grande": 96}
+TAMANHOS = {"pequeno": 44, "medio": 62, "grande": 92}   # pequeno = letra de story do dia a dia
 
 
 def _luz(img, caixa):
@@ -441,8 +441,10 @@ def fator_contraste(img, caixa, alvo=100, minimo=0.45):
 
 def plano_texto(base, texto, o):
     """Decide fonte, linhas, posição e alinhamento do texto (seguindo as instruções ou o modelo dela)."""
-    tam = TAMANHOS.get(o.get("tamanho") or "medio", 66)
-    f = maquina(tam * 0.8) if o.get("fonte") == "maquina" else fonte("titulo", tam)
+    tam_nome = o.get("tamanho") or "pequeno"
+    tam = TAMANHOS.get(tam_nome, 44)
+    papel = "texto" if tam_nome == "pequeno" else "titulo"
+    f = maquina(tam * 0.8) if o.get("fonte") == "maquina" else fonte(papel, tam)
     if o.get("minusculas"):
         texto = texto.lower()
     caixa = o.get("caixa") or ("faixa" if o.get("faixa") else "nenhuma")
@@ -498,7 +500,6 @@ def desenhar_foto(caminho_foto, opcoes, destino):
         if not opcoes.get("exposicao") and pl["caixa"] == "nenhuma":   # escurece só se a letra precisar
             escurecer(img, [_caixa_texto(pl)])
         escrever(img, pl, 0.75 if opcoes.get("sombra", True) else 0)
-    marca(img)
     os.makedirs(os.path.dirname(destino), exist_ok=True)
     img.save(destino, quality=88, optimize=True)
     return destino
@@ -515,31 +516,27 @@ def camada_video(quadro, opcoes):
         if not opcoes.get("exposicao") and pl["caixa"] == "nenhuma":
             k = fator_contraste(base, _caixa_texto(pl))
         escrever(cam, pl, 0.75 if opcoes.get("sombra", True) else 0)
-    marca(cam)
     return cam, k
 
 
 def desenhar_post(caminho_img, txt, destino):
-    """Story que avisa do post novo: a arte do post em um cartão no meio, com o resumo embaixo."""
+    """Story que avisa do post novo: a arte do post num cartão e uma frase curta de story (sem título, sem logo)."""
     fundo = ImageOps.fit(ImageOps.exif_transpose(Image.open(caminho_img)).convert("RGB"), (W, H))
     img = ImageEnhance.Brightness(fundo.filter(ImageFilter.GaussianBlur(40))).enhance(0.35)
     post = ImageOps.exif_transpose(Image.open(caminho_img)).convert("RGB")
-    post.thumbnail((720, 720))
-    x, y = (W - post.width) // 2, A.TOPO_SEGURO + 120
+    post.thumbnail((820, 1060))
+    x, y = (W - post.width) // 2, max(A.TOPO_SEGURO + 110, (H - post.height) // 2 - 60)
     sombra = Image.new("L", (W, H), 0)
     ImageDraw.Draw(sombra).rounded_rectangle((x, y + 16, x + post.width, y + post.height + 16), 24, fill=180)
     img.paste((0, 0, 0), (0, 0), sombra.filter(ImageFilter.GaussianBlur(26)))
     masc = Image.new("L", post.size, 0)
     ImageDraw.Draw(masc).rounded_rectangle((0, 0, post.width, post.height), 24, fill=255)
     img.paste(post, (x, y), masc)
-    yy = y - 80
-    texto_com_sombra(img, ["post novo no feed"], yy, maquina(34), BRANCO, sombra=0, alinh="c")
-    yy = y + post.height + 70
-    f_t, f_c = fonte("titulo", 58), fonte("texto", 40)
-    yy = texto_com_sombra(img, A.quebrar(txt.get("titulo", ""), f_t, 880), yy, f_t, BRANCO, sombra=0) + 18
-    texto_com_sombra(img, A.quebrar(txt.get("texto", ""), f_c, 860), yy, f_c, CREME, sombra=0)
-    texto_com_sombra(img, ["o post completo está no meu perfil"], A.BASE_SEGURA - 150, maquina(30), BRANCO, sombra=0)
-    marca(img)
+    texto_com_sombra(img, ["post novo no feed"], y - 70, maquina(32), BRANCO, sombra=0, alinh="c")
+    frase = (txt.get("texto") or "").strip()
+    if frase:
+        f = fonte("texto", 42)
+        texto_com_sombra(img, A.quebrar(frase, f, 860)[:3], y + post.height + 60, f, BRANCO, sombra=0, alinh="c")
     os.makedirs(os.path.dirname(destino), exist_ok=True)
     img.save(destino, quality=88, optimize=True)
     return destino

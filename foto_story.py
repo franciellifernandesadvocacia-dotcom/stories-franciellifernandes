@@ -21,7 +21,7 @@ import publicar as P
 
 OPCOES_PADRAO = {"texto": "", "sem_texto": False, "sombra": True, "exposicao": None,
                  "posicao": "auto", "faixa": False, "quando": "",
-                 "alinhamento": "", "fonte": "normal", "tamanho": "medio", "caixa": "", "minusculas": False,
+                 "alinhamento": "", "fonte": "normal", "tamanho": "pequeno", "caixa": "", "minusculas": False,
                  "modelo_indice": -1}
 PEDE_MODELO = r"modelo|refer[eê]ncia|igual (a|à|ao|esse|essa)|mesmo estilo|nesse estilo|nessa pegada|inspira"
 LIMITE_TELEGRAM = 20 * 1024 * 1024        # o Telegram só deixa o robô baixar arquivos de até 20 MB
@@ -111,8 +111,9 @@ def interpretar_com_claude(legenda, caminho_foto, cliente=None, video=False):
         "fonte (maquina se parecer máquina de escrever, senão normal), tamanho (pequeno/medio/grande), "
         "caixa (faixa = fundo escuro atrás de cada linha; cartao = caixa branca com letra escura; nenhuma) e "
         "minusculas (true se o texto do modelo é todo em minúsculas). NUNCA copie o texto do modelo.\n"
-        "- texto: se ela escreveu um texto entre aspas ou disse 'escreva ...', copie exatamente. Se não, escreva UMA "
-        "frase curta (até 90 caracteres), natural e elegante, combinando com a imagem e o momento. Nada de "
+        "- texto: se ela escreveu um texto (entre aspas, depois de 'legenda:' ou 'escreva ...'), copie exatamente o "
+        "texto dela, sem as instruções. Se não, escreva UMA frase bem curta (até 50 caracteres), do jeito que a "
+        "gente escreve num story do dia a dia: simples, leve, sem cara de título ou gancho de post. Nada de "
         "promessas, preços ou chamadas para contratar. Sem emojis e sem hashtags.\n"
         "- sem_texto: true só se ela pediu sem texto.\n"
         "- sombra: false só se ela pediu sem sombra.\n"
@@ -120,6 +121,7 @@ def interpretar_com_claude(legenda, caminho_foto, cliente=None, video=False):
         "- posicao: topo, meio, base ou auto (auto = o robô acha a parte mais escura da foto).\n"
         "- alinhamento: esquerda, centro, direita ou \"\" (automático).\n"
         "- faixa: true se pediu faixa/fundo atrás das letras.\n"
+        "- tamanho: pequeno (letra de story do dia a dia), a não ser que ela peça letra maior ou o modelo mostre.\n"
         "- quando: \"agora\", um horário \"HH:MM\" ou \"\" (sem pedido).")
     resp = cliente.beta.messages.create(
         model=G.MODELO, max_tokens=2000, betas=["server-side-fallback-2026-07-01"], fallbacks="default",
@@ -150,14 +152,13 @@ def interpretar(legenda, caminho_foto, video=False):
 
 
 def horario(quando, agora, ocupados):
-    """Publica no mínimo 5 min depois (o robô precisa guardar a imagem antes). Sem pedido: próximo horário
-    redondo que fique a mais de 40 min dos outros stories do dia."""
-    minimo = agora + dt.timedelta(minutes=5)
+    """Horário pedido por ela ("HH:MM") ou, sem pedido, o quanto antes (2 min: tempo de guardar a imagem)."""
+    minimo = agora + dt.timedelta(minutes=2)
     if quando and re.match(r"^\d{2}:\d{2}$", quando):
         h, m = map(int, quando.split(":"))
         alvo = agora.replace(hour=h, minute=m, second=0, microsecond=0)
         return max(alvo if alvo >= agora else alvo + dt.timedelta(days=1), minimo)
-    if quando == "agora":
+    if quando in ("agora", "", None):        # foto dela: sai assim que ela aprovar
         return minimo
     t = (agora + dt.timedelta(minutes=30)).replace(minute=0, second=0, microsecond=0) + dt.timedelta(hours=1)
     for _ in range(48):
@@ -280,16 +281,20 @@ def processar(msg, chat, _tg, agora=None, _baixar=None):
     arte_sobria.desenhar_foto(usar[:5] if len(usar) > 1 else usar[0], opcoes, os.path.join(P.PASTA_STORIES, nome))
     for o in originais:
         os.remove(o)                          # os originais não ficam guardados no repositório
-    quando = _programar([nome], opcoes.get("quando", ""), agora)
-    tipo = "Colagem" if len(usar) > 1 else ("Story no estilo do modelo" if opcoes.get("modelo_indice", -1) >= 0 else "Story")
-    resumo = "sem texto" if opcoes.get("sem_texto") else f'texto: "{opcoes.get("texto", "")}"'
-    _tg("sendPhoto", {"chat_id": chat, "caption":
-        f"{tipo} programado para {quando:%d/%m às %H:%M} ({resumo}). Para cancelar, responda CANCELAR."},
+    quando = _programar([nome], opcoes.get("quando", ""), agora, status="aguardando")
+    tipo = "da colagem" if len(usar) > 1 else "do story"
+    _tg("sendPhoto", {"chat_id": chat, "caption": f"Prévia {tipo}. " + _pedido_ok(quando, agora)},
         [("photo", os.path.join(P.PASTA_STORIES, nome))])
     return nome
 
 
-def _programar(nomes, quando_pedido, agora):
+def _pedido_ok(quando, agora):
+    if quando - agora > dt.timedelta(minutes=10):
+        return f"Responda OK para sair às {quando:%H:%M} ou CANCELAR."
+    return "Responda OK para postar agora ou CANCELAR."
+
+
+def _programar(nomes, quando_pedido, agora, status="aprovado"):
     import aprovacao
     campos, linhas = aprovacao.ler_linhas()
     ocupados = []
@@ -303,7 +308,7 @@ def _programar(nomes, quando_pedido, agora):
     quando = horario(quando_pedido, agora, ocupados)
     for nome in nomes:                       # partes de um vídeo longo saem em seguida, na mesma rodada
         linhas.append({"arquivo": nome, "data": quando.strftime("%Y-%m-%d"), "hora": quando.strftime("%H:%M"),
-                       "status": "aprovado", "lote": "enviada"})
+                       "status": status, "lote": "enviada"})
     aprovacao.gravar_linhas(campos or ["arquivo", "data", "hora", "status", "lote"], linhas)
     return quando
 
@@ -325,11 +330,9 @@ def processar_video(m, legenda, chat, _tg, agora, pasta, marca, _baixar=None):
     saidas, dur = montar_video(original, opcoes, os.path.join(pasta, f"enviada-{marca}"))
     os.remove(original)
     nomes = [os.path.relpath(s, P.PASTA_STORIES).replace(os.sep, "/") for s in saidas]
-    quando = _programar(nomes, opcoes.get("quando", ""), agora)
-    resumo = "sem texto" if opcoes.get("sem_texto") else f'texto: "{opcoes.get("texto", "")}"'
-    partes = f" em {len(nomes)} partes de até {PARTE_MAX} s" if len(nomes) > 1 else ""
-    corte = " (vídeo longo: usei só os primeiros 5 minutos)" if dur > PARTE_MAX * PARTES_MAX else ""
-    _tg("sendVideo", {"chat_id": chat, "caption":
-        f"Vídeo programado para {quando:%d/%m às %H:%M}{partes}{corte} ({resumo}). Para cancelar, responda CANCELAR."},
+    quando = _programar(nomes, opcoes.get("quando", ""), agora, status="aguardando")
+    partes = f" Vai em {len(nomes)} partes de até {PARTE_MAX} s." if len(nomes) > 1 else ""
+    corte = " (Vídeo longo: usei só os primeiros 5 minutos.)" if dur > PARTE_MAX * PARTES_MAX else ""
+    _tg("sendVideo", {"chat_id": chat, "caption": f"Prévia do vídeo.{partes}{corte} " + _pedido_ok(quando, agora)},
         [("video", saidas[0])])
     return nomes[0]

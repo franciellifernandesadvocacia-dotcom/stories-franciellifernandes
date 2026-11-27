@@ -259,6 +259,11 @@ def aplicar_modo(cmd, e, linhas, agora):
             "Só vão sair as fotos que você mandar.\nQuando quiser que eu volte a comandar, mande VOCÊ COMANDA.")
 
 
+def _enviada_esperando(linhas):
+    """Fotos/vídeos mandados por ela que ainda esperam o OK (o OK vale para todos)."""
+    return [l for l in linhas if l.get("lote") == "enviada" and l.get("status") == "aguardando"]
+
+
 def ler_respostas(_tg=None, agora=None):
     """Lê as respostas novas no Telegram e atualiza a fila. Chamado a cada rodada do publicador."""
     _tg = _tg or telegram
@@ -314,8 +319,29 @@ def ler_respostas(_tg=None, agora=None):
             mudou = True
             _tg("sendMessage", {"chat_id": chat, "text": resposta})
             continue
-        if msg.get("text", "").strip().lower().startswith("cancelar"):
-            futuras = [l for l in linhas if l.get("lote") == "enviada" and l.get("status") == "aprovado"]
+        texto_msg = msg.get("text", "")
+        espera = _enviada_esperando(linhas)
+        if espera and interpretar(texto_msg)[0]:          # resposta à prévia da foto/vídeo que ela mandou
+            acao = interpretar(texto_msg)[0]
+            t = agora or dt.datetime.now(P.fuso())
+            for l in espera:
+                if acao == "ok":
+                    q = _quando(l)
+                    if q is None or q <= t + dt.timedelta(minutes=10):     # sem horário pedido: sai já
+                        q = t.replace(second=0, microsecond=0)
+                    l["data"], l["hora"], l["status"] = q.strftime("%Y-%m-%d"), q.strftime("%H:%M"), "aprovado"
+                else:
+                    l["status"] = "tirado"
+            mudou = True
+            if acao == "ok":
+                q = _quando(espera[0])
+                aviso = "Postando agora." if q <= t else f"Combinado: sai às {q:%H:%M}."
+            else:
+                aviso = "Cancelado: esse story não vai sair."
+            _tg("sendMessage", {"chat_id": chat, "text": aviso})
+            continue
+        if texto_msg.strip().lower().startswith("cancelar"):
+            futuras = [l for l in linhas if l.get("lote") == "enviada" and l.get("status") in ("aprovado", "aguardando")]
             if futuras:
                 base = re.sub(r"-parte\d+(?=\.(mp4|jpg)$)", "", futuras[-1]["arquivo"])
                 for l in futuras:                  # vídeo longo ou caso: cancela todas as partes juntas

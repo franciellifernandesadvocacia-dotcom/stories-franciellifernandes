@@ -136,9 +136,10 @@ def _imagem_do_post(post):
 
 def resumir_post(legenda, imagem=None):
     pedido = (f"Saiu um post novo no feed do {A.PERFIL['handle']}. Legenda do post:\n\"\"\"{legenda or '(sem legenda)'}\"\"\"\n\n"
-              "Escreva o story que avisa do post: titulo = o assunto do post em até 55 caracteres; texto = um "
-              "resumo de até 170 caracteres que dê vontade de ver o post completo, com as palavras da legenda "
-              "(não acrescente nenhuma regra ou informação que não esteja nela).")
+              "Escreva a frase do story que avisa do post, do jeito que a gente escreve num story do dia a dia: "
+              "texto = UMA frase curta (até 60 caracteres), simples, sem cara de título ou gancho de post, "
+              "chamando para ver o post (ex.: 'saiu post novo sobre salário-maternidade, corre lá'); "
+              "titulo = deixe vazio. Não acrescente nenhuma regra ou informação que não esteja na legenda.")
     return _claude(pedido, ESQUEMA_POST, imagem)
 
 
@@ -177,20 +178,16 @@ def story_de_posts(ig, agora=None, _baixar_img=None, _resumir=None, _tg=None):
             txt = (_resumir or resumir_post)(p.get("caption", ""), orig)
         except Exception as ex:      # sem Claude: usa o começo da legenda
             print("resumo do post sem Claude:", ex)
-            leg = (p.get("caption") or "").strip().split("\n")[0]
-            txt = {"titulo": "Post novo no feed", "texto": leg[:170]}
+            txt = {"titulo": "", "texto": ""}
         nome = f"{agora:%Y-%m-%d}/post-{p['id']}.jpg"
         arte_sobria.desenhar_post(orig, txt, os.path.join(P.PASTA_STORIES, nome))
         os.remove(orig)
-        # sai 15 min depois (tempo de ela cancelar), no horário exato, e a mensagem diz quando
-        alvo = agora + dt.timedelta(minutes=15)
-        quando = F._programar([nome], alvo.strftime("%H:%M"), agora)
+        quando = F._programar([nome], "agora", agora)      # sai na hora (2 min: tempo de guardar a imagem)
         nomes.append(nome)
         if _tg or os.environ.get("TELEGRAM_BOT_TOKEN"):
             tk, chat = aprovacao._cfg()
             (_tg or aprovacao.telegram)("sendPhoto", {"chat_id": chat, "caption":
-                f"Vi o post novo no feed e fiz um story avisando. Sai hoje às {quando:%H:%M}. "
-                "Para cancelar, responda CANCELAR."},
+                f"Vi o post novo no feed: o story avisando sai às {quando:%H:%M}. Para cancelar, responda CANCELAR."},
                 [("photo", os.path.join(P.PASTA_STORIES, nome))])
     aprovacao.salvar_estado(e)
     return nomes
