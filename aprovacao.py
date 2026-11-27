@@ -197,13 +197,18 @@ def enviar_lote(lote, _tg=None, atualizado=False):
 
 def interpretar(texto):
     """Devolve ("ok", {números a tirar}) ou ("nao", set()) ou (None, set())."""
-    t = texto.strip().lower()
-    if re.match(r"^(n[aã]o|nenhum)\b", t):
-        nums = set(int(n) for n in re.findall(r"\d+", t))
-        return ("ok", nums) if nums else ("nao", set())   # "NÃO 3" tira só o 3
-    if re.match(r"^(ok|sim|aprov)", t):
-        tirar = set(int(n) for n in re.findall(r"\d+", t)) if re.search(r"menos|tir|exceto|sem", t) else set()
-        return "ok", tirar
+    # Só vale como comando a mensagem INTEIRA ("Não", "não 3", "OK", "ok menos 2 e 5"). Uma frase que começa
+    # com "não" ("não corte a cabeça") é pedido de correção, nunca um NÃO.
+    t = re.sub(r"[.!👍✅ ]+$", "", texto.strip().lower())
+    nums_ok = r"(\s*(,|e)?\s*\d+)+"
+    if re.fullmatch(r"(n[aã]o|nenhum|n)", t):
+        return "nao", set()
+    if re.fullmatch(r"n[aã]o" + nums_ok, t):
+        return "ok", set(int(n) for n in re.findall(r"\d+", t))         # "NÃO 3" tira só o 3
+    if re.fullmatch(r"(ok|okay|sim|aprovado|aprovo|aprova|pode|pode postar|posta|manda|perfeito)", t):
+        return "ok", set()
+    if re.fullmatch(r"(ok|sim)\s+(menos|tira|tirando|exceto|sem)" + nums_ok, t):
+        return "ok", set(int(n) for n in re.findall(r"\d+", t))
     return None, set()
 
 
@@ -346,7 +351,7 @@ def ler_respostas(_tg=None, agora=None):
             continue
         pend = e.get("foto_pendente")
         if (espera and pend and texto_msg.strip() and not comando_modo(texto_msg)
-                and not texto_msg.strip().lower().startswith("cancelar")
+                and not re.fullmatch(r"cancela(r)?[.! ]*", texto_msg.strip().lower())
                 and any(l["arquivo"] == pend.get("arquivo") for l in espera)):
             try:                                          # correção da prévia: refaz e manda de novo
                 import foto_story
@@ -361,7 +366,7 @@ def ler_respostas(_tg=None, agora=None):
             except Exception as ex:
                 P.avisar(f"não consegui refazer o story com a correção: {ex}")
             continue
-        if texto_msg.strip().lower().startswith("cancelar"):
+        if re.fullmatch(r"cancela(r)?[.! ]*", texto_msg.strip().lower()):
             futuras = [l for l in linhas if l.get("lote") == "enviada" and l.get("status") in ("aprovado", "aguardando")]
             if futuras:
                 base = re.sub(r"-parte\d+(?=\.(mp4|jpg)$)", "", futuras[-1]["arquivo"])

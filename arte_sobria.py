@@ -71,14 +71,17 @@ def rostos(img):
     if not _CASCATAS:
         for nome in ("haarcascade_frontalface_default.xml", "haarcascade_profileface.xml"):
             _CASCATAS.append(cv2.CascadeClassifier(cv2.data.haarcascades + nome))
-    esc = 540 / img.width
-    peq = img.convert("L").resize((540, int(img.height * esc)))
-    g = cv2.equalizeHist(np.array(peq))
     caixas = []
-    for c in _CASCATAS:
-        for (x, y, w, h) in c.detectMultiScale(g, 1.1, 6, minSize=(36, 36)):
-            x, y, w, h = [v / esc for v in (x, y, w, h)]
-            caixas.append((x - 0.35 * w, y - 0.45 * h, x + 1.35 * w, y + 1.45 * h))
+    for largura_det in (540, 1080):                 # rosto pequeno (foto no espelho): tenta maior
+        esc = largura_det / img.width
+        peq = img.convert("L").resize((largura_det, int(img.height * esc)))
+        g = cv2.equalizeHist(np.array(peq))
+        for c in _CASCATAS:
+            for (x, y, w, h) in c.detectMultiScale(g, 1.1, 6, minSize=(36, 36)):
+                x, y, w, h = [v / esc for v in (x, y, w, h)]
+                caixas.append((x - 0.35 * w, y - 0.45 * h, x + 1.35 * w, y + 1.45 * h))
+        if caixas:
+            break
     return caixas
 
 
@@ -372,7 +375,7 @@ def encaixar(ft, tam, ajuste=None):
         cy = fy * ft.height if fy is not None and fy >= 0 else py
         x0 = min(max(0, cx - cw / 2), ft.width - cw)
         y0 = min(max(0, cy - ch / 2), ft.height - ch)
-        if faces and not (fy is not None and fy >= 0):         # automático: não corta o alto da cabeça
+        if faces:                                              # nunca corta o alto da cabeça
             y0 = max(0, min(y0, fc[1]))
         return ft.crop((int(x0), int(y0), int(x0 + cw), int(y0 + ch))).resize((w, h), Image.LANCZOS)
     esc = max(w / ft.width, h / ft.height)
@@ -381,7 +384,7 @@ def encaixar(ft, tam, ajuste=None):
     if faces:                                       # fica só com o rosto principal (o detector às vezes erra)
         area = lambda f: (f[2] - f[0]) * (f[3] - f[1])  # noqa: E731
         faces = [max(faces, key=area)]
-    cy, cx = 0.42, 0.5
+    cy, cx = (0.15 if ft.height > ft.width else 0.42), 0.5     # sem rosto achado: guarda o alto da foto
     if faces and sh > h + 1:
         topo = min(f[1] for f in faces) * esc
         base = max(f[3] for f in faces) * esc
@@ -610,7 +613,10 @@ def plano_texto(base, texto, o, cortes=()):
     evitar = rostos(base) + [(0, c - 60, W, c + 60) for c in cortes]
     pos = o.get("posicao") or "auto"
     ty = o.get("texto_y", -1)
-    if ty is not None and 0 <= ty <= 100:                 # posição exata pedida por ela
+    if o.get("texto_na_emenda") and cortes:              # ela pediu o texto entre as fotos
+        y = int(cortes[0] - alt / 2)
+        pos = "meio"
+    elif ty is not None and 0 <= ty <= 100:                 # posição exata pedida por ela
         y = int(min(max(A.TOPO_SEGURO + 20, ty / 100 * H), A.BASE_SEGURA - 110 - alt))
         y = escolher_y(base, alt, y, evitar)
         pos = "topo" if y < H * 0.33 else ("base" if y > H * 0.55 else "meio")

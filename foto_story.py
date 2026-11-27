@@ -24,7 +24,8 @@ OPCOES_PADRAO = {"texto": "", "sem_texto": False, "sombra": True, "exposicao": N
                  "alinhamento": "", "fonte": "normal", "tamanho": "pequeno", "caixa": "", "minusculas": False,
                  "modelo_indice": -1, "borda": False,
                  "fotos": [], "divisao": 0, "texto_y": -1, "tamanho_px": 0,
-                 "filtro": "", "brilho": 0, "contraste": 0, "saturacao": 0, "cor_texto": "", "nao_consegui": ""}
+                 "filtro": "", "brilho": 0, "contraste": 0, "saturacao": 0, "cor_texto": "", "nao_consegui": "",
+                 "texto_na_emenda": False}
 PEDE_MODELO = r"modelo|refer[eê]ncia|igual (a|à|ao|esse|essa)|mesmo estilo|nesse estilo|nessa pegada|inspira"
 LIMITE_TELEGRAM = 20 * 1024 * 1024        # o Telegram só deixa o robô baixar arquivos de até 20 MB
 
@@ -59,11 +60,12 @@ ESQUEMA = {
         "saturacao": {"type": "number"},
         "cor_texto": {"type": "string"},
         "nao_consegui": {"type": "string"},
+        "texto_na_emenda": {"type": "boolean"},
     },
     "required": ["texto", "sem_texto", "sombra", "exposicao", "posicao", "faixa", "quando",
                  "alinhamento", "fonte", "tamanho", "caixa", "minusculas", "modelo_indice", "borda",
                  "fotos", "divisao", "texto_y", "tamanho_px", "filtro", "brilho", "contraste", "saturacao",
-                 "cor_texto", "nao_consegui"],
+                 "cor_texto", "nao_consegui", "texto_na_emenda"],
     "additionalProperties": False,
 }
 
@@ -86,6 +88,8 @@ def interpretar_simples(legenda):
         o["filtro"] = "quente"
     if re.search(r"espelh", b):
         o["fotos"] = [{"zoom": 1, "foco_x": -1, "foco_y": -1, "girar": 0, "espelhar": True}] * 6
+    if re.search(r"entre as (duas )?fotos|no meio das fotos|na divis", b):
+        o["texto_na_emenda"] = True
     if re.search(r"menos parede|mais perto|aproxim|zoom|menos fundo", b):
         o["fotos"] = [{"zoom": 1.6, "foco_x": -1, "foco_y": -1}] * 6
     if re.search(r"centraliz|no centro|no meio", b):
@@ -172,7 +176,10 @@ def interpretar_com_claude(legenda, caminho_foto, cliente=None, video=False, atu
         "Na colagem, 'foto de cima' = Imagem 0, 'foto de baixo' = a última. Lista vazia = tudo automático.\n"
         "- divisao: na colagem de 2 fileiras, quanto da altura fica com a de cima (0.3 a 0.7); 0 = metade.\n"
         "- texto_y: altura do começo do texto em % da tela (0 = topo, 100 = pé); -1 = automático. 'Sobe o texto' = "
-        "diminua bem (uns 15 pontos); 'desce' = aumente. Nunca em cima do rosto nem na emenda entre fotos.\n"
+        "diminua bem (uns 15 pontos); 'desce' = aumente. Nunca em cima do rosto.\n"
+        "- texto_na_emenda: true se ela pediu o texto ENTRE as fotos da colagem (em cima da divisa); senão false "
+        "(aí o texto fica fora da divisa).\n"
+        "- 'Não corte a cabeça' = zoom menor e/ou foco_y menor naquela foto, com a cabeça inteira no quadro.\n"
         "- tamanho_px: tamanho exato da letra em pixels numa tela de 1080 de largura (story do dia a dia ~ 40 a 48); "
         "0 = usar 'tamanho'.\n"
         + (f"\nAJUSTES ATUAIS DA PRÉVIA (comece deles e mude SÓ o que ela pediu agora, de um jeito que dê para "
