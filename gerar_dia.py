@@ -229,7 +229,7 @@ if PERFIL.get("exemplo"):
 
 
 PRIMEIRO_STORY = os.environ.get("PRIMEIRO_STORY", "08:00")   # o dia começa às 8h
-ULTIMO_BLOCO = "20:00"
+ULTIMO_BLOCO = os.environ.get("ULTIMO_BLOCO", "12:00")   # stories entre 8h e meio-dia
 
 
 def _min(h):
