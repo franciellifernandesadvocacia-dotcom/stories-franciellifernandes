@@ -240,6 +240,9 @@ def _e_video(m):
     return bool(m.get("video") or (m.get("document") or {}).get("mime_type", "").startswith("video/"))
 
 
+ULTIMA = {}        # a última foto mandada (para refazer a prévia se ela pedir correção)
+
+
 def _e_foto(m):
     return bool(m.get("photo") or (m.get("document") or {}).get("mime_type", "").startswith("image/"))
 
@@ -282,16 +285,53 @@ def processar(msg, chat, _tg, agora=None, _baixar=None):
     for o in originais:
         os.remove(o)                          # os originais não ficam guardados no repositório
     quando = _programar([nome], opcoes.get("quando", ""), agora, status="aguardando")
+    ULTIMA.clear()
+    ULTIMA.update({"ids": ids[:6], "legenda": legenda, "arquivo": nome})
     tipo = "da colagem" if len(usar) > 1 else "do story"
     _tg("sendPhoto", {"chat_id": chat, "caption": f"Prévia {tipo}. " + _pedido_ok(quando, agora)},
         [("photo", os.path.join(P.PASTA_STORIES, nome))])
     return nome
 
 
+def corrigir(pend, correcao, chat, _tg, agora=None, _baixar=None):
+    """Ela respondeu à prévia com uma correção ("texto menor", "texto em cima", outro texto entre aspas...):
+    baixa a foto de novo do Telegram, refaz o story com a correção e manda a prévia nova.
+    Devolve o nome do arquivo novo (o antigo é apagado)."""
+    import arte_sobria
+    agora = agora or dt.datetime.now(P.fuso())
+    pasta = os.path.join(P.PASTA_STORIES, agora.strftime("%Y-%m-%d"))
+    os.makedirs(pasta, exist_ok=True)
+    marca = agora.strftime("%H%M%S")
+    originais = []
+    for k, fid in enumerate(pend["ids"]):
+        o = os.path.join(pasta, f"enviada-{marca}-original-{k}.jpg")
+        (_baixar or baixar_foto_telegram)(fid, o, _tg)
+        originais.append(o)
+    pedido = f"CORREÇÃO (vale mais que o resto): {correcao}\nPedido original: {pend.get('legenda') or '(nenhum)'}"
+    opcoes = interpretar(pedido, originais)
+    if not re.search(r'[“"]', correcao) and not opcoes.get("sem_texto"):
+        orig = interpretar_simples(pend.get("legenda", ""))     # sem texto novo entre aspas: mantém o texto dela
+        if orig.get("texto"):
+            opcoes["texto"] = orig["texto"]
+    usar = list(originais)
+    if 0 <= opcoes.get("modelo_indice", -1) < len(usar) and len(usar) > 1:
+        usar.pop(opcoes["modelo_indice"])
+    nome = f"{agora:%Y-%m-%d}/enviada-{marca}.jpg"
+    arte_sobria.desenhar_foto(usar[:5] if len(usar) > 1 else usar[0], opcoes, os.path.join(P.PASTA_STORIES, nome))
+    for o in originais:
+        os.remove(o)
+    antigo = os.path.join(P.PASTA_STORIES, pend["arquivo"])
+    if pend["arquivo"] != nome and os.path.exists(antigo):
+        os.remove(antigo)
+    _tg("sendPhoto", {"chat_id": chat, "caption": "Prévia corrigida. Responda OK para postar agora, "
+                      "mande outra correção ou CANCELAR."}, [("photo", os.path.join(P.PASTA_STORIES, nome))])
+    return nome, opcoes
+
+
 def _pedido_ok(quando, agora):
     if quando - agora > dt.timedelta(minutes=10):
-        return f"Responda OK para sair às {quando:%H:%M} ou CANCELAR."
-    return "Responda OK para postar agora ou CANCELAR."
+        return f"Responda OK para sair às {quando:%H:%M}, mande uma correção (ex.: texto em cima) ou CANCELAR."
+    return "Responda OK para postar agora, mande uma correção (ex.: texto em cima) ou CANCELAR."
 
 
 def _programar(nomes, quando_pedido, agora, status="aprovado"):

@@ -3,7 +3,7 @@ Robô em corrente: não depende do relógio do GitHub (que atrasa ou nem dispara
 
 Cada rodada fica acordada até ~5h20 dentro do GitHub Actions:
   - na hora exata de cada story, publica (roda o publicar.py normal);
-  - durante o dia, a cada minuto, lê o Telegram (fotos, CASO, NÃO 3...);
+  - durante o dia, fica escutando o Telegram e acorda assim que ela manda algo (fotos, CASO, NÃO 3...);
   - às 19h, se amanhã ainda não tem stories, aciona a geração;
   - antes de acabar o tempo, o workflow aciona a próxima rodada (passa a vez).
 
@@ -24,8 +24,8 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 ESTADO_CORRENTE = os.path.join(AQUI, "corrente.json")
 LIMITE_S = float(os.environ.get("CORRENTE_HORAS", "5.3")) * 3600
 HORA_GERAR = 19
-DIA_INI, DIA_FIM = 7, 22          # entre 7h e 22h confere o Telegram a cada minuto
-PASSO_DIA = dt.timedelta(minutes=1)     # de dia lê o Telegram a cada minuto (foto dela sai na hora)
+DIA_INI, DIA_FIM = 7, 22          # entre 7h e 22h fica escutando o Telegram
+PASSO_DIA = dt.timedelta(minutes=2)     # confere o feed a cada 2 min; mensagem dela acorda na hora (esperar)
 PASSO_NOITE = dt.timedelta(minutes=30)
 ARQUIVOS = ("registro.csv", "fila.csv", "estado.json", "stories", "corrente.json")
 
@@ -127,6 +127,36 @@ def proximo_acordar(t, itens=None, feitos=None):
     return min(candidatos)
 
 
+_ULTIMO_ACORDAR = {}
+
+
+def esperar(segundos, t=None, _tg=None):
+    """Dorme até a hora marcada, mas de dia fica escutando o Telegram: se ela mandar algo, acorda na hora.
+    Só espia as mensagens (não marca como lidas): quem lê e responde é a rodada do publicar.py."""
+    import aprovacao
+    t = t or agora()
+    tk, chat = aprovacao._cfg()
+    if not (tk and chat) or not (DIA_INI <= t.hour < DIA_FIM):
+        time.sleep(segundos)
+        return False
+    _tg = _tg or aprovacao.telegram
+    fim = time.monotonic() + segundos
+    while (resta := fim - time.monotonic()) > 1:
+        try:
+            offset = aprovacao.ler_estado().get("offset", 0)
+            r = _tg("getUpdates", {"offset": offset, "timeout": int(min(50, resta)), "limit": 1})
+            if r.get("result") and offset == _ULTIMO_ACORDAR.get("offset"):
+                time.sleep(min(20, max(0, resta)))       # a rodada não conseguiu ler: não fica girando
+            elif r.get("result"):
+                _ULTIMO_ACORDAR["offset"] = offset
+                print("mensagem nova no Telegram: acordando agora")
+                return True
+        except Exception as ex:          # Telegram fora do ar: só dorme um pouco e tenta de novo
+            print("não consegui escutar o Telegram:", str(ex)[:200])
+            time.sleep(min(20, max(0, resta)))
+    return False
+
+
 def rodada_publicar():
     env = dict(os.environ)
     if not env.get("API_HOST"):
@@ -151,9 +181,9 @@ def correr():
             print("tempo desta rodada acabou: passando a vez para a próxima")
             return 0
         espera = min(espera, resta)
-        print(f"dormindo até {(agora() + dt.timedelta(seconds=espera)):%H:%M:%S}")
+        print(f"dormindo até {(agora() + dt.timedelta(seconds=espera)):%H:%M:%S} (ou até chegar mensagem)")
         sys.stdout.flush()
-        time.sleep(espera)
+        esperar(espera)
 
 
 def principal(argv=None):

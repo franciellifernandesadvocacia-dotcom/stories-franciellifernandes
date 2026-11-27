@@ -296,8 +296,11 @@ def ler_respostas(_tg=None, agora=None):
                     gravar_linhas(campos, linhas)
                 if grupo:
                     vistos.add(grupo)
+                foto_story.ULTIMA.clear()
                 foto_story.processar(albuns[grupo] if grupo else msg, chat, _tg)
                 campos, linhas = ler_linhas()
+                if foto_story.ULTIMA:
+                    e["foto_pendente"] = dict(foto_story.ULTIMA)
                 mudou = False
             except Exception as ex:
                 P.avisar(f"não consegui montar o story da foto: {ex}")
@@ -333,12 +336,28 @@ def ler_respostas(_tg=None, agora=None):
                 else:
                     l["status"] = "tirado"
             mudou = True
+            e.pop("foto_pendente", None)
             if acao == "ok":
                 q = _quando(espera[0])
                 aviso = "Postando agora." if q <= t else f"Combinado: sai às {q:%H:%M}."
             else:
                 aviso = "Cancelado: esse story não vai sair."
             _tg("sendMessage", {"chat_id": chat, "text": aviso})
+            continue
+        pend = e.get("foto_pendente")
+        if (espera and pend and texto_msg.strip() and not comando_modo(texto_msg)
+                and not texto_msg.strip().lower().startswith("cancelar")
+                and any(l["arquivo"] == pend.get("arquivo") for l in espera)):
+            try:                                          # correção da prévia: refaz e manda de novo
+                import foto_story
+                novo, _ = foto_story.corrigir(pend, texto_msg, chat, _tg, agora)
+                for l in espera:
+                    if l["arquivo"] == pend["arquivo"]:
+                        l["arquivo"] = novo
+                pend["arquivo"] = novo
+                mudou = True
+            except Exception as ex:
+                P.avisar(f"não consegui refazer o story com a correção: {ex}")
             continue
         if texto_msg.strip().lower().startswith("cancelar"):
             futuras = [l for l in linhas if l.get("lote") == "enviada" and l.get("status") in ("aprovado", "aguardando")]
@@ -348,6 +367,7 @@ def ler_respostas(_tg=None, agora=None):
                     if re.sub(r"-parte\d+(?=\.(mp4|jpg)$)", "", l["arquivo"]) == base:
                         l["status"] = "tirado"
                 mudou = True
+                e.pop("foto_pendente", None)
                 _tg("sendMessage", {"chat_id": chat, "text": "Cancelado: o último story enviado por você não vai sair."})
             continue
         if not e.get("ultimo_lote"):
