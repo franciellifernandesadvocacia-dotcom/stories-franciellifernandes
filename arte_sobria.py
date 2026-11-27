@@ -97,33 +97,52 @@ def marca(img, x=None, y=None):
         img.paste(lg, (x, y), lg)
 
 
+def _dominio(link):
+    import urllib.parse
+    h = urllib.parse.urlparse(link or "").netloc.lower()
+    return h[4:] if h.startswith("www.") else h
+
+
 def cartao_noticia(img, story, rot):
-    """Notícia com cara de notícia: cartão branco de matéria, como um link compartilhado no story."""
+    """Notícia com cara de notícia: um cartão de matéria como link compartilhado, com o jornal no topo
+    (nome e site), manchete, resumo e a linha de fonte embaixo."""
     cinza, preto = (110, 106, 102), (20, 19, 18)
-    f_fonte, f_man, f_res = fonte("rotulo", 30), fonte("titulo", 64), fonte("texto", 40)
-    larg = 820
+    veic, _, data = (story.get("fonte") or "Notícia").partition("·")
+    veic, data = veic.strip(), data.strip()
+    site = _dominio(story.get("link"))
+    f_veic, f_site = fonte("rotulo", 36), fonte("texto", 28)
+    f_man, f_res, f_pe = fonte("titulo", 62), fonte("texto", 39), fonte("texto", 27)
+    x0, x1, pad = 70, W - 70, 50
+    larg = x1 - x0 - 2 * pad
     ml = A.quebrar(story["titulo"], f_man, larg)
     rl = A.quebrar(story["texto"], f_res, larg)
-    veic, _, data = (story.get("fonte") or "Notícia").partition("·")
-    alt = 70 + 40 + len(ml) * 76 + 30 + len(rl) * 54 + 90
-    y0 = max(A.TOPO_SEGURO + 90, (H - alt) // 2 - 80)
+    topo = 124                                    # faixa escura com o nome do jornal
+    alt = topo + 44 + len(ml) * 74 + 24 + len(rl) * 53 + 40 + 70
+    y0 = max(A.TOPO_SEGURO + 90, (H - alt) // 2 - 60)
     sombra = Image.new("L", (W, H), 0)
-    ImageDraw.Draw(sombra).rounded_rectangle((70, y0 + 14, W - 70, y0 + alt + 14), 30, fill=170)
+    ImageDraw.Draw(sombra).rounded_rectangle((x0, y0 + 14, x1, y0 + alt + 14), 28, fill=170)
     img.paste(Image.new("RGB", (W, H), (0, 0, 0)), (0, 0), sombra.filter(ImageFilter.GaussianBlur(24)))
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle((70, y0, W - 70, y0 + alt), 30, fill=(255, 255, 255))
-    d.text((120, y0 + 50), espacado(veic.strip())[:40], font=f_fonte, fill=cinza)
-    if data.strip():
-        d.text((W - 120, y0 + 50), data.strip(), font=f_fonte, fill=cinza, anchor="ra")
-    y = y0 + 120
-    d.line([(120, y - 22), (W - 120, y - 22)], fill=(225, 222, 218), width=2)
+    d.rounded_rectangle((x0, y0, x1, y0 + alt), 28, fill=(255, 255, 255))
+    d.rounded_rectangle((x0, y0, x1, y0 + topo), 28, fill=(28, 27, 26))
+    d.rectangle((x0, y0 + topo - 30, x1, y0 + topo), fill=(28, 27, 26))
+    d.text((x0 + pad, y0 + 30), veic.upper()[:34], font=f_veic, fill=(255, 255, 255))
+    if site:
+        d.text((x0 + pad, y0 + 78), site, font=f_site, fill=(190, 186, 180))
+    if data:
+        d.text((x1 - pad, y0 + 34), data, font=f_site, fill=(190, 186, 180), anchor="ra")
+    y = y0 + topo + 44
     for ln in ml:
-        d.text((120, y), ln, font=f_man, fill=preto)
-        y += 76
-    y += 26
+        d.text((x0 + pad, y), ln, font=f_man, fill=preto)
+        y += 74
+    y += 24
     for ln in rl:
-        d.text((120, y), ln, font=f_res, fill=(70, 68, 66))
-        y += 54
+        d.text((x0 + pad, y), ln, font=f_res, fill=(70, 68, 66))
+        y += 53
+    y += 24
+    d.line([(x0 + pad, y), (x1 - pad, y)], fill=(225, 222, 218), width=2)
+    pe = "Fonte: " + veic + (f" · {site}" if site else "") + (f" · {data}" if data else "")
+    d.text((x0 + pad, y + 22), pe, font=f_pe, fill=cinza)
     # sempre deixa claro que é notícia; caso real e jurisprudência ganham a etiqueta ao lado
     f_nd = fonte("detalhe", 40)
     texto_com_sombra(img, ["Notícia do dia"], y0 - 86, f_nd, BRANCO, alinh="l", x=92)
