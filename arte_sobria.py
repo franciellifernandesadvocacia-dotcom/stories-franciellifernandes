@@ -252,6 +252,8 @@ def diario(img, story):
 
 
 def _layout(story, indice):
+    if story.get("tipo") == "pessoal" and story.get("layout") not in LAYOUTS:
+        return "diario" if indice % 2 else "base_esq"     # story pessoal: máquina de escrever ou texto solto
     if story.get("layout") in LAYOUTS:
         return story["layout"]
     return LAYOUTS[(indice + len(story.get("titulo", ""))) % len(LAYOUTS)]

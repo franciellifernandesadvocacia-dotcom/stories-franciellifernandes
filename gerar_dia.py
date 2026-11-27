@@ -172,6 +172,7 @@ Cada story tem que fazer sentido depois do anterior e puxar o próximo.
    ou consequências → o que fazer), com tipo igual ao tema ({PERFIL["tipos_do_tema"]})
    ou "dica"/"pergunta". Use ganchos de ligação no começo do título ou
    do texto ("E se...?", "Agora, a parte que pouca gente sabe:", "Resumindo:").
+{("4b. STORY PESSOAL: " + PERFIL["story_pessoal"]) if PERFIL.get("story_pessoal") else ""}
 5. Último story: fecha a conversa com um resumo curto e rodape "dúvidas? manda no direct".
    Só o último tem rodape; nos outros, rodape vazio.
 Limites: titulo até 60 caracteres e texto até 170 (exceto bom_dia e notícia, acima).

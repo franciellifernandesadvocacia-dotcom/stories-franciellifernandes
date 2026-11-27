@@ -26,7 +26,8 @@
   "pergunta": "VOCÊ SABIA?",
   "caso_real": "CASO REAL",
   "jurisprudencia": "JURISPRUDÊNCIA",
-  "curiosidade": "CURIOSIDADE"
+  "curiosidade": "CURIOSIDADE",
+  "pessoal": ""
  },
  "tipos_do_tema": "aposentadoria, bpc_loas, incapacidade, maternidade, pensao, segurado, caso_real, jurisprudencia, curiosidade",
  "busca": "sobre Direito Previdenciário e INSS no Brasil. Procure PRIMEIRO no site Migalhas (migalhas.com.br); depois em fontes oficiais (stj.jus.br, stf.jus.br, TNU no cjf.jus.br, sites dos TRFs, gov.br/inss, Agência Senado, Agência Câmara) e veículos confiáveis. Traga uma mistura: (a) CASOS REAIS com decisão judicial favorável ao segurado noticiados pela imprensa ou pelos tribunais (ex.: mãe consegue BPC para filho autista, trabalhadora rural aposentada na Justiça, auxílio restabelecido após perícia errada); (b) JURISPRUDÊNCIA nova do STF, STJ, TNU ou TRFs a favor dos segurados; (c) mudanças nas regras e no atendimento do INSS; (d) CURIOSIDADES verdadeiras sobre o INSS e a Previdência. Marque no título de cada item, entre colchetes, o tipo: [CASO REAL], [JURISPRUDÊNCIA], [NOVIDADE] ou [CURIOSIDADE].",
@@ -229,5 +230,6 @@
  "exposicao": 0.5,
  "sombra_texto": 0,
  "bom_dia_cartao": true,
- "story_de_post": true
+ "story_de_post": true,
+ "story_pessoal": "Um story no MEIO da sequência (nunca o primeiro nem o último), tipo \"pessoal\", em bloco próprio: mais pessoal e orgânico, como um respiro no meio do conteúdo. Fundo SEMPRE uma foto da Dra. (retrato-escuro, retrato-pb, retrato-claro, cafe, notebook ou sala). titulo = um pensamento curto em primeira pessoa, em minúsculas, sobre a profissão, os valores ou o jeito dela de trabalhar (ex.: \"tem dia que o trabalho mais importante é escutar\", \"por trás de cada pedido negado tem uma família esperando\"); texto = 1 frase curta que completa a ideia (até 120 caracteres) ou vazio; comentario = frase de fechamento curta ou vazio. É reflexão e opinião, não relato: nunca diga que algo aconteceu hoje, nunca cite cliente, atendimento, audiência, lugar ou número."
 }
