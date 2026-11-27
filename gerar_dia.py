@@ -151,38 +151,37 @@ def escrever_stories(cliente, hoje, noticias, quantos, hist):
     pauta = PERFIL.get("pauta_semana", {}).get(dia_semana, "")
     if pauta:
         versos += f"\nPAUTA DE HOJE ({dia_semana}): {pauta}. Se a notícia escolhida for um caso real ou uma "\
-                  "jurisprudência, os dois stories da notícia usam o tipo caso_real ou jurisprudencia.\n"
+                  "jurisprudência, o story da notícia usa o tipo caso_real ou jurisprudencia.\n"
     pedido = f"""Escreva os {quantos} stories de {dia_semana}, {hoje:%d/%m/%Y}.
 
-Eles são UMA SEQUÊNCIA que a pessoa assiste em ordem, como uma conversa com começo, meio e fim.
-Cada story tem que fazer sentido depois do anterior e puxar o próximo.
+Eles giram em torno de um tema do dia, mas CADA STORY SE SUSTENTA SOZINHO: quem vê só aquele story
+entende tudo, sem depender do anterior. NÃO faça stories de conexão ou de ligação: nada de título ou
+começo que só emenda com o story anterior ou puxa o próximo ("E o que isso muda pra você?", "E se...?",
+"E quanto tempo eu tenho?", "E como funciona...?", "Agora, a parte que pouca gente sabe:", "Agora, uma
+curiosidade", "Resumindo:", "Para fechar"). Todo título diz o assunto do próprio story.
 
 1. Escolha o TEMA DO DIA entre: {", ".join(TEMAS)}. Prefira o que combina com a notícia escolhida
    e evite repetir os temas dos últimos dias: {", ".join(hist.get("temas", [])[-4:]) or "nenhum"}.
 2. Story 1, tipo "bom_dia": {PERFIL["bom_dia"].replace("{dia}", dia_semana) if "titulo" in PERFIL["bom_dia"] else 'titulo "Bom dia" (ou "Boa ' + dia_semana + '"); ' + PERFIL["bom_dia"]}.
-3. Stories 2 e 3, tipo "noticia": UMA notícia da lista abaixo, ligada ao tema, contada em
-   DOIS stories seguidos (os dois com o mesmo número em "noticia" e a mesma "fonte" "Veículo · dd/mm"):
-   - o primeiro conta o que aconteceu: titulo = manchete com suas palavras (até 70 caracteres);
-     texto = resumo da matéria (até 220 caracteres); comentario vazio;
-   - o segundo explica o que isso muda na vida das pessoas: titulo curto (ex.: "E o que isso muda pra
-     você?"); texto até 200 caracteres; comentario = 1 frase que puxa o tema do dia (até 90).
+3. Story 2, tipo "noticia": UMA notícia da lista abaixo, ligada ao tema, contada num ÚNICO story
+   (com o número em "noticia" e a "fonte" "Veículo · dd/mm"): titulo = manchete com suas palavras
+   (até 70 caracteres); texto = resumo da matéria (até 220 caracteres); comentario = 1 frase dizendo
+   o que isso muda na prática para as pessoas (até 90). Não faça um segundo story sobre a mesma notícia.
    A pessoa não vai abrir link: o resumo tem que se bastar. Use só fatos do resumo da lista.
    Se não houver notícia adequada, faça um story "pergunta" que introduz o tema.
-4. Stories do meio: desenvolvem o tema em passos lógicos (o que é → por que acontece → quanto tempo
-   ou consequências → o que fazer), com tipo igual ao tema ({PERFIL["tipos_do_tema"]})
-   ou "dica"/"pergunta". Use ganchos de ligação no começo do título ou
-   do texto ("E se...?", "Agora, a parte que pouca gente sabe:", "Resumindo:").
+4. Demais stories: cada um traz UMA informação completa e útil sobre o tema (o que é, quem tem direito,
+   um prazo, um erro comum, o que fazer), com tipo igual ao tema ({PERFIL["tipos_do_tema"]})
+   ou "dica"/"pergunta". Uma "pergunta" já traz a resposta no próprio texto.
 {("4b. STORY PESSOAL: " + PERFIL["story_pessoal"]) if PERFIL.get("story_pessoal") else ""}
-5. Último story: fecha a conversa com um resumo curto e rodape "dúvidas? manda no direct".
+5. Último story: uma dica prática que vale sozinha (não um resumo dos anteriores), com rodape
+   "dúvidas? manda no direct".
    Só o último tem rodape; nos outros, rodape vazio.
 Limites: titulo até 60 caracteres e texto até 170 (exceto bom_dia e notícia, acima).
 "fonte" vazio e "noticia" = 0 quando não for notícia; "comentario" vazio quando não for notícia, exceto no
 bom_dia se as instruções do bom_dia pedirem uma frase de fechamento.
 "fundo": escolha um destes: {fundos} ({PERFIL["fundos_dica"]}).
 "bloco": os stories saem ao longo do dia em BLOCOS; os do mesmo bloco saem juntos, um atrás do outro.
-Ponha no mesmo bloco o que só faz sentido visto junto: os dois stories da notícia (manchete + o que muda)
-ficam SEMPRE no mesmo bloco; uma pergunta fica no bloco da resposta; os passos de uma mesma explicação
-ficam juntos. O bom_dia é sozinho no bloco 1. Numere os blocos em ordem (1, 2, 3...), de 1 a 3 stories
+Agrupe stories de assunto parecido no mesmo bloco. O bom_dia é sozinho no bloco 1. Numere os blocos em ordem (1, 2, 3...), de 1 a 3 stories
 por bloco, entre 3 e 5 blocos no dia.
 "assunto": 3 a 6 palavras resumindo cada story. Não repita estes assuntos recentes:
 {"; ".join(hist.get("assuntos", [])[-40:]) or "nenhum"}.
