@@ -366,6 +366,11 @@ def rodada(ig, agora):
             anotar("erro", it["arquivo"], ag, detalhe=str(e))
             avisar(f'erro ao publicar {it["arquivo"]}: {e}')
             erros += 1
+    try:
+        import aprovacao
+        aprovacao.avisar_mudancas(agora)
+    except Exception as e:  # aviso no Telegram nunca impede publicar
+        print("não consegui avisar as mudanças no Telegram:", e)
     return 1 if erros else 0
 
 

@@ -84,7 +84,55 @@ def telegram(metodo, campos=None, arquivos=None):
         return json.loads(r.read().decode())
 
 
-def enviar_lote(lote, _tg=None):
+def assinatura(lote, linhas=None):
+    """Impressão digital do dia (arquivos, horários, status e o conteúdo das artes): muda quando algo é refeito."""
+    import hashlib
+    if linhas is None:
+        _, linhas = ler_linhas()
+    h = hashlib.sha1()
+    for l in linhas:
+        if l.get("lote") != lote or l.get("status") not in ("aguardando", "aprovado"):
+            continue
+        h.update(f'{l["arquivo"]}|{l.get("data")}|{l.get("hora")}|{l.get("status")}\n'.encode())
+        cam = os.path.join(P.PASTA_STORIES, l["arquivo"])
+        if os.path.exists(cam):
+            with open(cam, "rb") as f:
+                h.update(f.read())
+    return h.hexdigest()
+
+
+def avisar_mudancas(agora, _tg=None):
+    """Se os stories de hoje ou de amanhã mudaram depois do aviso (horário novo, arte refeita, story tirado),
+    manda de novo no Telegram o que ainda vai sair."""
+    tk, chat = _cfg()
+    if not (tk and chat):
+        return 0
+    _, linhas = ler_linhas()
+    e = ler_estado()
+    avisados = e.setdefault("avisado", {})
+    feitos = {k.split("|")[0] for k in P.ja_resolvidos()}
+    enviados = 0
+    for dia in (agora.date(), agora.date() + dt.timedelta(days=1)):
+        lote = dia.isoformat()
+        do_dia = [l for l in linhas if l.get("lote") == lote and l.get("status") in ("aguardando", "aprovado")]
+        if not do_dia or not all(l.get("status") == "aprovado" for l in do_dia):
+            continue
+        if not [l for l in do_dia if l["arquivo"] not in feitos]:
+            continue
+        ass = assinatura(lote, linhas)
+        if avisados.get(lote) == ass:
+            continue
+        enviar_lote(lote, _tg=_tg, atualizado=True)
+        enviados += 1
+    for velho in [k for k in avisados if k < agora.date().isoformat()]:
+        avisados.pop(velho)
+    e2 = ler_estado()
+    e2["avisado"] = {**avisados, **e2.get("avisado", {})}
+    salvar_estado(e2)
+    return enviados
+
+
+def enviar_lote(lote, _tg=None, atualizado=False):
     _tg = _tg or telegram
     tk, chat = _cfg()
     if not (tk and chat):
@@ -96,7 +144,12 @@ def enviar_lote(lote, _tg=None):
     else:
         _, linhas = ler_linhas()
         do_dia = [l for l in linhas if l.get("lote") == lote and l.get("status") in ("aguardando", "aprovado")]
-    if not do_dia:
+    if atualizado:  # na atualização, só o que ainda não saiu
+        feitos = {k.split("|")[0] for k in P.ja_resolvidos()}
+        numerados = [(i, l) for i, l in enumerate(do_dia, start=1) if l["arquivo"] not in feitos]
+    else:
+        numerados = list(enumerate(do_dia, start=1))
+    if not numerados:
         return 0
     textos, tema = {}, ""
     p_txt = os.path.join(P.PASTA_STORIES, lote, "textos.json")
@@ -106,19 +159,23 @@ def enviar_lote(lote, _tg=None):
         lista = dados["stories"] if isinstance(dados, dict) else dados
         textos = {i + 1: s for i, s in enumerate(lista)}
         tema = dados.get("tema", "") if isinstance(dados, dict) else ""
-    for ini in range(0, len(do_dia), 10):
-        grupo = do_dia[ini:ini + 10]
-        midia = [{"type": "photo", "media": f"attach://f{i}", "caption": str(ini + i + 1)} for i in range(len(grupo))]
-        arqs = [(f"f{i}", os.path.join(P.PASTA_STORIES, l["arquivo"])) for i, l in enumerate(grupo)]
-        _tg("sendMediaGroup", {"chat_id": chat, "media": json.dumps(midia)}, arqs)
+    for ini in range(0, len(numerados), 10):
+        grupo = numerados[ini:ini + 10]
+        midia = [{"type": "photo", "media": f"attach://f{k}", "caption": str(n)} for k, (n, _) in enumerate(grupo)]
+        arqs = [(f"f{k}", os.path.join(P.PASTA_STORIES, l["arquivo"])) for k, (_, l) in enumerate(grupo)]
+        if len(grupo) == 1:  # o Telegram não aceita álbum de uma foto só
+            _tg("sendPhoto", {"chat_id": chat, "caption": str(grupo[0][0])}, [("photo", arqs[0][1])])
+        else:
+            _tg("sendMediaGroup", {"chat_id": chat, "media": json.dumps(midia)}, arqs)
     resumo = "\n".join(f'{i}. {l["hora"]}  {textos.get(i, {}).get("titulo", l["arquivo"])}'
                        + (f'\n    link: {textos[i]["link"]}' if textos.get(i, {}).get("link") else "")
-                       for i, l in enumerate(do_dia, start=1))
+                       for i, l in numerados)
     if lote == "exemplo":
         _tg("sendMessage", {"chat_id": chat, "text": "TESTE: estas artes são só um exemplo e NÃO serão publicadas.\n\n" + resumo})
         return 0
     if all(l.get("status") == "aprovado" for l in do_dia):  # modo automático: só avisa o que vai sair
         _tg("sendMessage", {"chat_id": chat, "text":
+            ("ATUALIZADO: " if atualizado else "") +
             f"Stories de {lote[8:10]}/{lote[5:7]} programados (automático)" + (f" — tema: {tema}" if tema else "") +
             f":\n\n{resumo}\n\nVão sair sozinhos. Para cancelar algum, responda por exemplo:\n"
             "NÃO 3 = tira o 3\nNÃO = cancela todos do dia\n"
@@ -130,6 +187,7 @@ def enviar_lote(lote, _tg=None):
             "Responda:\nOK = aprova todos\nOK menos 2 5 = aprova todos menos esses\nNÃO = não publica nenhum"})
     e = ler_estado()
     e["ultimo_lote"] = lote
+    e.setdefault("avisado", {})[lote] = assinatura(lote)
     salvar_estado(e)
     return 0
 
