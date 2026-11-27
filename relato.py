@@ -182,12 +182,15 @@ def story_de_posts(ig, agora=None, _baixar_img=None, _resumir=None, _tg=None):
         nome = f"{agora:%Y-%m-%d}/post-{p['id']}.jpg"
         arte_sobria.desenhar_post(orig, txt, os.path.join(P.PASTA_STORIES, nome))
         os.remove(orig)
-        F._programar([nome], "", agora + dt.timedelta(minutes=15))
+        # sai 15 min depois (tempo de ela cancelar), no horário exato, e a mensagem diz quando
+        alvo = agora + dt.timedelta(minutes=15)
+        quando = F._programar([nome], alvo.strftime("%H:%M"), agora)
         nomes.append(nome)
         if _tg or os.environ.get("TELEGRAM_BOT_TOKEN"):
             tk, chat = aprovacao._cfg()
             (_tg or aprovacao.telegram)("sendPhoto", {"chat_id": chat, "caption":
-                "Vi o post novo no feed e fiz um story avisando. Para cancelar, responda CANCELAR."},
+                f"Vi o post novo no feed e fiz um story avisando. Sai hoje às {quando:%H:%M}. "
+                "Para cancelar, responda CANCELAR."},
                 [("photo", os.path.join(P.PASTA_STORIES, nome))])
     aprovacao.salvar_estado(e)
     return nomes
