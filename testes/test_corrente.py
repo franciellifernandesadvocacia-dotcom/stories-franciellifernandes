@@ -32,19 +32,20 @@ class TestCorrente(unittest.TestCase):
         shutil.rmtree(self.tmp)
 
     def test_acorda_na_hora_do_story(self):
-        prox = C.proximo_acordar(t("2026-12-01 07:55"))
+        prox = C.proximo_acordar(t("2026-12-01 07:55") + dt.timedelta(seconds=270))
         self.assertEqual(prox.strftime("%H:%M:%S"), "08:00:05")
-        prox = C.proximo_acordar(t("2026-12-01 09:15"))
+        prox = C.proximo_acordar(t("2026-12-01 09:19") + dt.timedelta(seconds=30))
         self.assertEqual(prox.strftime("%H:%M:%S"), "09:20:05")
 
     def test_sem_story_confere_telegram_e_19h(self):
-        self.assertEqual(C.proximo_acordar(t("2026-12-01 10:00")).strftime("%H:%M"), "10:10")
-        self.assertEqual(C.proximo_acordar(t("2026-12-01 18:55")).strftime("%H:%M:%S"), "19:00:30")
+        self.assertEqual(C.proximo_acordar(t("2026-12-01 10:00")).strftime("%H:%M"), "10:01")   # de dia: Telegram a cada minuto
+        self.assertEqual(C.proximo_acordar(t("2026-12-01 18:59") + dt.timedelta(seconds=20)).strftime("%H:%M:%S"), "19:00:20")
         self.assertEqual(C.proximo_acordar(t("2026-12-01 23:00")).strftime("%H:%M"), "23:30")
 
     def test_story_ja_publicado_nao_acorda(self):
         P.anotar("publicado", "b.jpg", "2026-12-01 09:20", caminho=P.REGISTRO)
-        self.assertEqual(C.proximo_acordar(t("2026-12-01 09:15")).strftime("%H:%M"), "09:25")
+        self.assertEqual(C.proximo_acordar(t("2026-12-01 09:19")).strftime("%H:%M"), "09:20")
+        self.assertEqual(C.proximo_acordar(t("2026-12-01 09:19") + dt.timedelta(seconds=40)).strftime("%H:%M:%S"), "09:20:40")
 
     def test_gera_as_19h_no_maximo_duas_vezes(self):
         pedidos = []

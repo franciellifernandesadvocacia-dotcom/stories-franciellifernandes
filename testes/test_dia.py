@@ -277,13 +277,45 @@ class TestFotoEnviada(Ambiente):
         itens = P.ler_fila()[0]
         self.assertEqual(len(itens), 1)
         self.assertEqual(itens[0]["quando"].strftime("%Y-%m-%d %H:%M"), "2026-12-01 18:00")
-        self.assertEqual(itens[0]["status"], "aprovado")
+        self.assertEqual(itens[0]["status"], "aguardando")          # foto dela: só sai depois do OK
         self.assertEqual(P.conferir_imagem(itens[0]["arquivo"]), [])
         self.assertFalse(any("original" in f for f in os.listdir(os.path.join(P.PASTA_STORIES, "2026-12-01"))))
-        self.assertTrue(any(m == "sendPhoto" and "18:00" in c["caption"] for m, c, a in enviados))
+        self.assertTrue(any(m == "sendPhoto" and "Prévia" in c["caption"] and "18:00" in c["caption"]
+                            for m, c, a in enviados))
+        # OK: aprova mantendo o horário que ela pediu
+        respostas = []
+        A.ler_respostas(_tg=lambda m, c=None, a=None: {"result": [{"update_id": 6, "message": {"chat": {"id": 42}, "text": "ok"}}]} if m == "getUpdates" else respostas.append(c) or {"ok": True},
+                        agora=agora)
+        it = P.ler_fila()[0][0]
+        self.assertEqual((it["status"], it["quando"].strftime("%H:%M")), ("aprovado", "18:00"))
+        self.assertIn("18:00", respostas[-1]["text"])
         # cancelar
-        A.ler_respostas(_tg=lambda m, c=None, a=None: {"result": [{"update_id": 6, "message": {"chat": {"id": 42}, "text": "cancelar"}}]} if m == "getUpdates" else {"ok": True})
+        A.ler_respostas(_tg=lambda m, c=None, a=None: {"result": [{"update_id": 7, "message": {"chat": {"id": 42}, "text": "cancelar"}}]} if m == "getUpdates" else {"ok": True})
         self.assertEqual(P.ler_fila()[0][0]["status"], "tirado")
+
+    def test_foto_sem_horario_sai_na_hora_do_ok(self):
+        import foto_story as F
+        with open(P.FILA, "w", encoding="utf-8") as f:
+            f.write("arquivo,data,hora,status,lote\n")
+        A.salvar_estado({"offset": 0, "ultimo_lote": "2026-12-01", "lembrete": ""})
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+        msg = {"chat": {"id": 42}, "photo": [{"file_id": "p1"}], "caption": "Poste agora, sem sombra."}
+        agora = self.agora("2026-12-01 11:39")
+        antigo = F.processar
+        F.processar = lambda m, c, t: antigo(m, c, t, agora=agora, _baixar=lambda fid, dest, _t: self._foto(dest))
+        try:
+            A.ler_respostas(_tg=lambda m, c=None, a=None: {"result": [{"update_id": 5, "message": msg}]} if m == "getUpdates" else {"ok": True})
+        finally:
+            F.processar = antigo
+        self.assertEqual(P.ler_fila()[0][0]["status"], "aguardando")
+        respostas = []
+        ok_em = self.agora("2026-12-01 11:52")
+        A.ler_respostas(_tg=lambda m, c=None, a=None: {"result": [{"update_id": 6, "message": {"chat": {"id": 42}, "text": "Ok"}}]} if m == "getUpdates" else respostas.append(c) or {"ok": True},
+                        agora=ok_em)
+        it = P.ler_fila()[0][0]
+        self.assertEqual((it["status"], it["quando"]), ("aprovado", ok_em))
+        self.assertEqual(respostas[-1]["text"], "Postando agora.")
+        self.assertEqual(A.ler_estado()["ultimo_lote"], "2026-12-01")      # o OK não mexeu nos stories do dia
 
     def test_album_vira_colagem(self):
         import foto_story as F
@@ -325,9 +357,8 @@ class TestFotoEnviada(Ambiente):
         self.assertEqual((o["texto"], o["exposicao"], o["faixa"], o["quando"]), ("treino feito", 0.45, True, "agora"))
         self.assertTrue(F.interpretar_simples("sem texto")["sem_texto"])
         agora = self.agora("2026-12-01 09:10")
-        self.assertEqual(F.horario("agora", agora, []), agora + dt.timedelta(minutes=5))
-        livre = F.horario("", agora, [self.agora("2026-12-01 10:00")])
-        self.assertEqual(livre.strftime("%H:%M"), "11:00")
+        self.assertEqual(F.horario("agora", agora, []), agora + dt.timedelta(minutes=2))
+        self.assertEqual(F.horario("", agora, [self.agora("2026-12-01 10:00")]), agora + dt.timedelta(minutes=2))
 
 
 class TestAvisoDeMudanca(Ambiente):
@@ -404,8 +435,7 @@ class TestModeloEVideo(Ambiente):
         self.assertEqual(len(itens), 1)
         self.assertEqual(P.conferir_imagem(itens[0]["arquivo"]), [])
         legenda = [c["caption"] for m, c, a in enviados if m == "sendPhoto"][0]
-        self.assertIn("estilo do modelo", legenda)
-        self.assertIn("isso na foto", legenda)
+        self.assertIn("Prévia", legenda)
 
     def test_video_vira_story_em_partes(self):
         import subprocess
