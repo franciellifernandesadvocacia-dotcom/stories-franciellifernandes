@@ -38,14 +38,32 @@ class TestCorrente(unittest.TestCase):
         self.assertEqual(prox.strftime("%H:%M:%S"), "09:20:05")
 
     def test_sem_story_confere_telegram_e_19h(self):
-        self.assertEqual(C.proximo_acordar(t("2026-12-01 10:00")).strftime("%H:%M"), "10:01")   # de dia: Telegram a cada minuto
-        self.assertEqual(C.proximo_acordar(t("2026-12-01 18:59") + dt.timedelta(seconds=20)).strftime("%H:%M:%S"), "19:00:20")
+        self.assertEqual(C.proximo_acordar(t("2026-12-01 10:00")).strftime("%H:%M"), "10:02")   # de dia: feed a cada 2 min
+        self.assertEqual(C.proximo_acordar(t("2026-12-01 18:59") + dt.timedelta(seconds=20)).strftime("%H:%M:%S"), "19:00:30")
         self.assertEqual(C.proximo_acordar(t("2026-12-01 23:00")).strftime("%H:%M"), "23:30")
 
     def test_story_ja_publicado_nao_acorda(self):
         P.anotar("publicado", "b.jpg", "2026-12-01 09:20", caminho=P.REGISTRO)
-        self.assertEqual(C.proximo_acordar(t("2026-12-01 09:19")).strftime("%H:%M"), "09:20")
-        self.assertEqual(C.proximo_acordar(t("2026-12-01 09:19") + dt.timedelta(seconds=40)).strftime("%H:%M:%S"), "09:20:40")
+        self.assertEqual(C.proximo_acordar(t("2026-12-01 09:19")).strftime("%H:%M"), "09:21")
+
+    def test_mensagem_no_telegram_acorda_na_hora(self):
+        import aprovacao
+        antigo_estado = aprovacao.ESTADO
+        aprovacao.ESTADO = os.path.join(self.tmp, "estado.json")
+        self.addCleanup(setattr, aprovacao, "ESTADO", antigo_estado)
+        os.environ.update(TELEGRAM_BOT_TOKEN="x", TELEGRAM_CHAT_ID="42")
+        aprovacao.salvar_estado({"offset": 7})
+        chamadas = []
+
+        def tg(metodo, campos=None, arquivos=None):
+            chamadas.append(campos)
+            return {"result": [{"update_id": 7}]} if len(chamadas) >= 2 else {"result": []}
+        inicio = C.time.monotonic()
+        self.assertTrue(C.esperar(600, t("2026-12-01 10:00"), _tg=tg))
+        self.assertLess(C.time.monotonic() - inicio, 5)
+        self.assertEqual(chamadas[0]["offset"], 7)
+        self.assertFalse(C.esperar(0.5, t("2026-12-01 23:00"), _tg=tg))   # de noite só dorme
+        os.environ.pop("TELEGRAM_BOT_TOKEN"); os.environ.pop("TELEGRAM_CHAT_ID")
 
     def test_gera_as_19h_no_maximo_duas_vezes(self):
         pedidos = []

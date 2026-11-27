@@ -317,6 +317,42 @@ class TestFotoEnviada(Ambiente):
         self.assertEqual(respostas[-1]["text"], "Postando agora.")
         self.assertEqual(A.ler_estado()["ultimo_lote"], "2026-12-01")      # o OK não mexeu nos stories do dia
 
+    def test_correcao_refaz_a_previa(self):
+        import foto_story as F
+        with open(P.FILA, "w", encoding="utf-8") as f:
+            f.write("arquivo,data,hora,status,lote\n")
+        A.salvar_estado({"offset": 0, "ultimo_lote": "", "lembrete": ""})
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+        msg = {"chat": {"id": 42}, "photo": [{"file_id": "p1"}], "caption": '"treino feito" sem sombra'}
+        agora = self.agora("2026-12-01 11:39")
+        antigo = F.processar
+        baixar = lambda fid, dest, _t: self._foto(dest)  # noqa: E731
+        F.processar = lambda m, c, t: antigo(m, c, t, agora=agora, _baixar=baixar)
+        antigo_corr = F.corrigir
+        F.corrigir = lambda pend, txt, c, t, ag=None: antigo_corr(pend, txt, c, t, self.agora("2026-12-01 11:41"), _baixar=baixar)
+        enviados = []
+
+        def tg_com(texto_ou_msg, uid):
+            m = texto_ou_msg if isinstance(texto_ou_msg, dict) else {"chat": {"id": 42}, "text": texto_ou_msg}
+            return lambda met, c=None, a=None: {"result": [{"update_id": uid, "message": m}]} if met == "getUpdates" else enviados.append((met, c)) or {"ok": True}
+        try:
+            A.ler_respostas(_tg=tg_com(msg, 5), agora=agora)
+            primeiro = P.ler_fila()[0][0]["arquivo"]
+            self.assertEqual(A.ler_estado()["foto_pendente"]["arquivo"], primeiro)
+            A.ler_respostas(_tg=tg_com("texto em cima", 6), agora=self.agora("2026-12-01 11:41"))
+        finally:
+            F.processar, F.corrigir = antigo, antigo_corr
+        it = P.ler_fila()[0][0]
+        self.assertNotEqual(it["arquivo"], primeiro)
+        self.assertEqual(it["status"], "aguardando")
+        self.assertFalse(os.path.exists(os.path.join(P.PASTA_STORIES, primeiro)))
+        self.assertEqual(P.conferir_imagem(it["arquivo"]), [])
+        self.assertIn("corrigida", enviados[-1][1]["caption"])
+        A.ler_respostas(_tg=tg_com("ok", 7), agora=self.agora("2026-12-01 11:42"))
+        it = P.ler_fila()[0][0]
+        self.assertEqual(it["status"], "aprovado")
+        self.assertNotIn("foto_pendente", A.ler_estado())
+
     def test_album_vira_colagem(self):
         import foto_story as F
         from PIL import Image
