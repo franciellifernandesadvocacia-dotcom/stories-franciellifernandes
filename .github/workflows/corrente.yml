@@ -1,0 +1,55 @@
+# Robô em corrente: publica cada story no minuto certo sem depender do relógio do GitHub.
+# Cada rodada fica acordada ~5h20 e, antes de acabar, aciona a próxima (passa a vez).
+# O relógio de hora em hora abaixo é só reserva: religa a corrente se ela quebrar.
+name: Corrente de stories
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 * * * *"     # reserva: se a corrente cair, o GitHub religa (quando ele lembrar)
+
+concurrency:
+  group: corrente-stories      # só uma corrente por vez; a da fila espera a atual acabar
+  cancel-in-progress: false
+
+permissions:
+  contents: write              # salvar registro.csv / estado.json
+  actions: write               # acionar a próxima rodada e a geração das 19h
+
+jobs:
+  corrente:
+    runs-on: ubuntu-latest
+    timeout-minutes: 345
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Corrente
+        id: corrente
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          API_HOST: ${{ vars.API_HOST }}
+          PAGE_ID: ${{ vars.PAGE_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "publicador-stories"
+          git config user.email "actions@users.noreply.github.com"
+          python corrente.py
+
+      - name: Passar a vez
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # se a rodada caiu logo no começo, espera um pouco para não virar um pisca-pisca de erros
+          if [ "${{ steps.corrente.outcome }}" != "success" ]; then sleep 300; fi
+          gh workflow run corrente.yml --ref main
