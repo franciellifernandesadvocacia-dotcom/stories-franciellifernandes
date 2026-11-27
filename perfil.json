@@ -230,6 +230,5 @@
  "exposicao": 0.5,
  "sombra_texto": 0,
  "bom_dia_cartao": true,
- "story_de_post": true,
- "story_pessoal": "Um story no MEIO da sequência (nunca o primeiro nem o último), tipo \"pessoal\", em bloco próprio: simples, leve e solto, como alguém postando do celular. NADA de lei, direito, INSS, benefício, cliente ou trabalho jurídico: é a vida e a rotina dela (manhã, café, organização do dia, um momento de pausa, gratidão, a semana, o clima, uma vontade boa). Fundo SEMPRE uma foto da Dra. (retrato-escuro, retrato-pb, retrato-claro, cafe, notebook ou sala). titulo = UMA frase curta e natural em minúsculas, até 60 caracteres (ex.: \"sexta pedindo calma\", \"café antes de tudo\", \"um dia de cada vez\", \"hoje o dia começou mais leve\"); texto vazio; comentario vazio. Sem conselho, sem lição, sem tom de post: só um respiro. Nunca invente fato (lugar, viagem, compromisso, pessoa)."
+ "story_de_post": true
 }
