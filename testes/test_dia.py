@@ -69,9 +69,9 @@ class TestGerar(Ambiente):
         self.assertEqual(len(itens), 7)
         self.assertTrue(all(i["status"] == "aguardando" for i in itens))
         self.assertEqual(itens[0]["quando"].strftime("%H:%M"), "08:00")
-        self.assertEqual(itens[-1]["quando"].strftime("%H:%M"), "11:20")
+        self.assertEqual(itens[-1]["quando"].strftime("%H:%M"), "11:33")
         # os dois stories da notícia saem juntos, um atrás do outro
-        self.assertEqual([i["quando"].strftime("%H:%M") for i in itens[1:3]], ["08:40", "08:41"])
+        self.assertEqual([i["quando"].strftime("%H:%M") for i in itens[1:3]], ["08:01", "08:02"])
         for i in itens:
             self.assertEqual(P.conferir_imagem(i["arquivo"]), [])  # 1080x1920, JPEG
         self.assertEqual(G.gerar(DIA, exemplo=True), 0)  # não gera duas vezes o mesmo dia
@@ -117,7 +117,7 @@ class TestGerar(Ambiente):
         self.assertNotIn("inventada", pedido)          # link que não veio da busca é descartado
         self.assertNotIn("não lida", pedido)           # matéria que não foi aberta não entra
         self.assertEqual(chamadas[0]["tools"][1]["type"], "web_fetch_20260209")
-        self.assertIn("CADA STORY SE SUSTENTA SOZINHO", pedido)
+        self.assertIn("DOIS MOMENTOS", pedido)
         self.assertEqual(chamadas[2]["output_config"]["format"]["type"], "json_schema")
         self.assertEqual(chamadas[2]["model"], "claude-opus-5-5")
         with open(G.HISTORICO, encoding="utf-8") as f:
@@ -190,7 +190,9 @@ class TestAprovacao(Ambiente):
     def test_blocos_com_o_claude(self):
         st = [{"tipo": "bom_dia", "bloco": 1}, {"tipo": "noticia", "bloco": 2}, {"tipo": "noticia", "bloco": 2},
               {"tipo": "pergunta", "bloco": 3}, {"tipo": "dica", "bloco": 3}, {"tipo": "dica", "bloco": 4}]
-        self.assertEqual(G.horarios(6, st), ["08:00", "09:20", "09:21", "10:40", "10:41", "12:00"])
+        self.assertEqual(G.horarios(6, st), ["08:00", "08:01", "08:02", "11:30", "11:31", "11:32"])
+        st = [{"tipo": "bom_dia"}, {"tipo": "pergunta"}, {"tipo": "dica"}]   # sem notícia
+        self.assertEqual(G.horarios(3, st), ["08:00", "11:30", "11:31"])
 
     def test_automatico_avisa_e_deixa_cancelar(self):
         os.environ["APROVACAO"] = "automatica"
