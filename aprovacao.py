@@ -106,6 +106,7 @@ def avisar_mudancas(agora, _tg=None):
     manda de novo no Telegram o que ainda vai sair."""
     tk, chat = _cfg()
     if not (tk and chat):
+        print("aviso de mudança: Telegram não configurado neste robô")
         return 0
     _, linhas = ler_linhas()
     e = ler_estado()
@@ -121,7 +122,9 @@ def avisar_mudancas(agora, _tg=None):
             continue
         ass = assinatura(lote, linhas)
         if avisados.get(lote) == ass:
+            print(f"aviso de mudança: {lote} sem mudança desde o último aviso")
             continue
+        print(f"aviso de mudança: reenviando {lote} no Telegram")
         enviar_lote(lote, _tg=_tg, atualizado=True)
         enviados += 1
     for velho in [k for k in avisados if k < agora.date().isoformat()]:
