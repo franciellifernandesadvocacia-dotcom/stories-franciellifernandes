@@ -1,5 +1,5 @@
 {
- "offset": 105796037,
+ "offset": 105796038,
  "ultimo_lote": "2026-11-27",
  "lembrete": "2026-11-27",
  "posts_vistos": [
@@ -15,50 +15,5 @@
  ],
  "avisado": {
   "2026-11-27": "418095959913e0ab2f1e34391a5c0513b6dd3aa0"
- },
- "foto_pendente": {
-  "ids": [
-   "AgACAgEAAxkBAAMkawmkMnPea1vk8yVdgcVnt2Ra0AcAAlANaxsjGVFE_uAzJxWRWwUBAAMCAAN5AAM9BA",
-   "AgACAgEAAxkBAAMpawm8aVISLUl5-oDpYj9f0-eXpkEAAlUNaxsjGVFEV6eui7G88DUBAAMCAAN5AAM9BA"
-  ],
-  "legenda": "Poste agora, sem sombra. Legenda pequena e centralizada: cuidando da sa\u00fade e da mente, na disciplina pura e fazendo o que precisa ser feito. Mande para mim aprovar",
-  "arquivo": "2026-11-27/enviada-133750.jpg",
-  "correcoes": [
-   "tira a borda, rosto inteiro, texto mais pra cima e centralizado",
-   "Ajusta a foto de baixo e deixe menos parede amostra",
-   "Ajusta a foto de baixo e deixe menos parede amostra",
-   "Menos zoom"
-  ],
-  "opcoes": {
-   "texto": "cuidando da sa\u00fade e da mente, na disciplina pura e fazendo o que precisa ser feito",
-   "sem_texto": false,
-   "sombra": false,
-   "exposicao": null,
-   "posicao": "meio",
-   "faixa": false,
-   "quando": "agora",
-   "alinhamento": "centro",
-   "fonte": "normal",
-   "tamanho": "pequeno",
-   "caixa": "nenhuma",
-   "minusculas": true,
-   "modelo_indice": -1,
-   "borda": false,
-   "fotos": [
-    {
-     "zoom": 1,
-     "foco_x": -1,
-     "foco_y": -1
-    },
-    {
-     "zoom": 1.15,
-     "foco_x": 0.47,
-     "foco_y": 0.56
-    }
-   ],
-   "divisao": 0,
-   "texto_y": 38,
-   "tamanho_px": 42
-  }
  }
 }
