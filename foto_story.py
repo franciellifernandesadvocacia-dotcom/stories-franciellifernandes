@@ -23,7 +23,8 @@ OPCOES_PADRAO = {"texto": "", "sem_texto": False, "sombra": True, "exposicao": N
                  "posicao": "auto", "faixa": False, "quando": "",
                  "alinhamento": "", "fonte": "normal", "tamanho": "pequeno", "caixa": "", "minusculas": False,
                  "modelo_indice": -1, "borda": False,
-                 "fotos": [], "divisao": 0, "texto_y": -1, "tamanho_px": 0}
+                 "fotos": [], "divisao": 0, "texto_y": -1, "tamanho_px": 0,
+                 "filtro": "", "brilho": 0, "contraste": 0, "saturacao": 0, "cor_texto": "", "nao_consegui": ""}
 PEDE_MODELO = r"modelo|refer[eê]ncia|igual (a|à|ao|esse|essa)|mesmo estilo|nesse estilo|nessa pegada|inspira"
 LIMITE_TELEGRAM = 20 * 1024 * 1024        # o Telegram só deixa o robô baixar arquivos de até 20 MB
 
@@ -46,15 +47,23 @@ ESQUEMA = {
         "borda": {"type": "boolean"},
         "fotos": {"type": "array", "items": {
             "type": "object",
-            "properties": {"zoom": {"type": "number"}, "foco_x": {"type": "number"}, "foco_y": {"type": "number"}},
-            "required": ["zoom", "foco_x", "foco_y"], "additionalProperties": False}},
+            "properties": {"zoom": {"type": "number"}, "foco_x": {"type": "number"}, "foco_y": {"type": "number"},
+                           "girar": {"type": "integer"}, "espelhar": {"type": "boolean"}},
+            "required": ["zoom", "foco_x", "foco_y", "girar", "espelhar"], "additionalProperties": False}},
         "divisao": {"type": "number"},
         "texto_y": {"type": "number"},
         "tamanho_px": {"type": "integer"},
+        "filtro": {"type": "string", "enum": ["", "pb", "quente", "frio", "saturado", "suave"]},
+        "brilho": {"type": "number"},
+        "contraste": {"type": "number"},
+        "saturacao": {"type": "number"},
+        "cor_texto": {"type": "string"},
+        "nao_consegui": {"type": "string"},
     },
     "required": ["texto", "sem_texto", "sombra", "exposicao", "posicao", "faixa", "quando",
                  "alinhamento", "fonte", "tamanho", "caixa", "minusculas", "modelo_indice", "borda",
-                 "fotos", "divisao", "texto_y", "tamanho_px"],
+                 "fotos", "divisao", "texto_y", "tamanho_px", "filtro", "brilho", "contraste", "saturacao",
+                 "cor_texto", "nao_consegui"],
     "additionalProperties": False,
 }
 
@@ -71,6 +80,12 @@ def interpretar_simples(legenda):
     o["sem_texto"] = bool(re.search(r"sem (texto|frase|legenda)", b))
     o["faixa"] = bool(re.search(r"com faixa|com fundo", b))
     o["borda"] = bool(re.search(r"com borda|com espa[cç]o", b))
+    if re.search(r"preto e branco|p&b|\bpb\b", b):
+        o["filtro"] = "pb"
+    elif re.search(r"mais quente|quentinh", b):
+        o["filtro"] = "quente"
+    if re.search(r"espelh", b):
+        o["fotos"] = [{"zoom": 1, "foco_x": -1, "foco_y": -1, "girar": 0, "espelhar": True}] * 6
     if re.search(r"menos parede|mais perto|aproxim|zoom|menos fundo", b):
         o["fotos"] = [{"zoom": 1.6, "foco_x": -1, "foco_y": -1}] * 6
     if re.search(r"centraliz|no centro|no meio", b):
@@ -162,7 +177,15 @@ def interpretar_com_claude(legenda, caminho_foto, cliente=None, video=False, atu
         "0 = usar 'tamanho'.\n"
         + (f"\nAJUSTES ATUAIS DA PRÉVIA (comece deles e mude SÓ o que ela pediu agora, de um jeito que dê para "
            f"ver a diferença; mantenha o resto igual):\n{json.dumps(atual, ensure_ascii=False)}\n" if atual else "")
-        + "\nObedeça TODOS os pedidos dela, um por um. Se algo não der para fazer, chegue o mais perto possível.")
+        + "- fotos[].girar: 0, 90, 180 ou 270 (graus no sentido horário); fotos[].espelhar: true para inverter os lados.\n"
+        "- filtro: pb (preto e branco), quente, frio, saturado (cores mais vivas), suave, ou \"\" (nenhum).\n"
+        "- brilho, contraste, saturacao: 0 = não mexe; senão um fator (1.2 = 20% a mais, 0.8 = 20% a menos).\n"
+        "- cor_texto: cor da letra em hexadecimal (#FFFFFF branco, #000000 preto, #C9A46C dourado, #E8B4B8 rosa...) "
+        "ou \"\" para o padrão.\n"
+        "- Emojis: se ela pedir emoji, coloque o emoji dentro do texto (eles aparecem coloridos).\n"
+        "- nao_consegui: se ela pediu algo que NENHUM desses ajustes faz (música, link, figurinha, enquete, marcar "
+        "alguém, apagar um objeto da foto...), diga aqui em poucas palavras o que não deu; senão \"\".\n"
+        "\nObedeça TODOS os pedidos dela, um por um. Se algo não der para fazer, chegue o mais perto possível.")
     resp = cliente.beta.messages.create(
         model=G.MODELO, max_tokens=2000, betas=["server-side-fallback-2026-07-01"], fallbacks="default",
         system=G.REGRAS, output_config={"effort": "medium" if atual else "low",
@@ -329,7 +352,7 @@ def processar(msg, chat, _tg, agora=None, _baixar=None):
     ULTIMA.clear()
     ULTIMA.update({"ids": ids[:6], "legenda": legenda, "arquivo": nome, "opcoes": opcoes})
     tipo = "da colagem" if len(usar) > 1 else "do story"
-    _tg("sendPhoto", {"chat_id": chat, "caption": f"Prévia {tipo}. " + _pedido_ok(quando, agora)},
+    _tg("sendPhoto", {"chat_id": chat, "caption": f"Prévia {tipo}. " + _pedido_ok(quando, agora) + _aviso(opcoes)},
         [("photo", os.path.join(P.PASTA_STORIES, nome))])
     return nome
 
@@ -368,8 +391,13 @@ def corrigir(pend, correcao, chat, _tg, agora=None, _baixar=None):
     if pend["arquivo"] != nome and os.path.exists(antigo):
         os.remove(antigo)
     _tg("sendPhoto", {"chat_id": chat, "caption": "Prévia corrigida. Responda OK para postar agora, "
-                      "mande outra correção ou CANCELAR."}, [("photo", os.path.join(P.PASTA_STORIES, nome))])
+                      "mande outra correção ou CANCELAR." + _aviso(opcoes)}, [("photo", os.path.join(P.PASTA_STORIES, nome))])
     return nome, opcoes
+
+
+def _aviso(opcoes):
+    n = (opcoes.get("nao_consegui") or "").strip()
+    return f"\n\nNão consegui: {n}" if n else ""
 
 
 def _pedido_ok(quando, agora):

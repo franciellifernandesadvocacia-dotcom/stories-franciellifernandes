@@ -2,6 +2,7 @@
 texto branco numa serifada clássica e fina (Cormorant Garamond), centralizado, sem caixas.
 Inspirado nos stories de frase com café: calmo, elegante, orgânico."""
 import os
+import re
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps, ImageStat
 
 import arte_natural as A
@@ -109,6 +110,61 @@ def escolher_y(img, alt, preferido, faces, x0=60, x1=W - 60):
     return min(cands, key=lambda y: _luz(img, (x0, y, x1, y + alt))[0] + abs(y - preferido) * 0.02)
 
 
+EMOJI_RE = re.compile("(?:[\U0001F1E6-\U0001F1FF]{2}|[\U0001F300-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\u2300-\u23FF]"
+                      "[\uFE0F\U0001F3FB-\U0001F3FF]?(?:\u200D[\U0001F300-\U0001FAFF\u2600-\u27BF][\uFE0F]?)*)")
+_EMOJIS = {}
+
+
+def _emoji_img(e, tam):
+    """Baixa o desenho do emoji (Twemoji) uma vez e devolve no tamanho da letra. Sem internet: None."""
+    cod = "-".join(f"{ord(c):x}" for c in e if ord(c) != 0xFE0F or len(e) > 2)
+    if cod not in _EMOJIS:
+        try:
+            import io
+            import urllib.request
+            url = f"https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/72x72/{cod}.png"
+            with urllib.request.urlopen(url, timeout=15) as r:
+                _EMOJIS[cod] = Image.open(io.BytesIO(r.read())).convert("RGBA")
+        except Exception:
+            _EMOJIS[cod] = None
+    im = _EMOJIS[cod]
+    return im.resize((tam, tam), Image.LANCZOS) if im else None
+
+
+def _pedacos(ln, f):
+    """Separa a linha em texto e emojis, com a largura de cada pedaço."""
+    tam = int(f.size * 1.05)
+    out, i = [], 0
+    for m in EMOJI_RE.finditer(ln):
+        if m.start() > i:
+            out.append(("t", ln[i:m.start()], f.getlength(ln[i:m.start()])))
+        out.append(("e", m.group(0), tam + 6))
+        i = m.end()
+    if i < len(ln):
+        out.append(("t", ln[i:], f.getlength(ln[i:])))
+    return out
+
+
+def largura(ln, f):
+    return sum(p[2] for p in _pedacos(ln, f))
+
+
+def linha(img, d, px, y, ln, f, cor, anc="la"):
+    """Escreve uma linha (com emojis coloridos no meio, se houver). anc: la / ma / ra como no PIL."""
+    ps = _pedacos(ln, f)
+    tot = sum(p[2] for p in ps)
+    x = px - tot / 2 if anc[0] == "m" else (px - tot if anc[0] == "r" else px)
+    asc, _ = f.getmetrics()
+    for tipo, txt, w in ps:
+        if tipo == "t":
+            d.text((x, y), txt, font=f, fill=cor)
+        elif img is not None:
+            em = _emoji_img(txt, int(f.size * 1.05))
+            if em:
+                img.paste(em, (int(x + 3), int(y + asc - f.size * 0.95)), em)
+        x += w
+
+
 def texto_com_sombra(img, linhas, y, f, cor=BRANCO, entre=1.18, sombra=0.75, alinh="c", x=90):
     """Escreve linhas com uma sombra preta difusa atrás (a 'sombra preta'). alinh: c (centro) ou l (esquerda)."""
     asc, desc = f.getmetrics()
@@ -118,7 +174,7 @@ def texto_com_sombra(img, linhas, y, f, cor=BRANCO, entre=1.18, sombra=0.75, ali
     dc = ImageDraw.Draw(camada)
     for i, ln in enumerate(linhas):
         px, anc = pos()
-        dc.text((px, y + i * passo), ln, font=f, fill=255, anchor=anc)
+        linha(None, dc, px, y + i * passo, ln, f, 255, anc)
     sombra = sombra * A.PERFIL.get("sombra_texto", 1)     # 0 = sem sombra atrás das letras
     if sombra > 0:
         halo = camada.filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.GaussianBlur(28))
@@ -126,7 +182,7 @@ def texto_com_sombra(img, linhas, y, f, cor=BRANCO, entre=1.18, sombra=0.75, ali
     d = ImageDraw.Draw(img)
     for i, ln in enumerate(linhas):
         px, anc = pos()
-        d.text((px, y + i * passo), ln, font=f, fill=cor, anchor=anc)
+        linha(img, d, px, y + i * passo, ln, f, cor, anc)
     return y + len(linhas) * passo
 
 
@@ -137,11 +193,11 @@ def faixas(img, linhas, y, f, cor=BRANCO, fundo=(0, 0, 0, 150), alinh="c", x=90)
     cam = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(cam)
     for i, ln in enumerate(linhas):
-        w = f.getlength(ln)
+        w = largura(ln, f)
         x0 = (W - w) / 2 if alinh == "c" else (W - x - w if alinh == "r" else x)
         yy = y + i * (alt + 16)
         d.rounded_rectangle((x0 - 22, yy - 10, x0 + w + 22, yy + alt + 10), 16, fill=fundo)
-        d.text((x0, yy), ln, font=f, fill=cor)
+        linha(cam, d, x0, yy, ln, f, cor)
     img.paste(cam, (0, 0), cam)
     return y + len(linhas) * (alt + 16)
 
@@ -264,6 +320,38 @@ def maquina(tam):
     return ImageFont.truetype(os.path.join(A.AQUI, "fontes", arq), int(tam))
 
 
+def filtrar(img, o):
+    """Filtros que ela pede: preto e branco, quente, frio, mais saturado, suave, brilho, contraste e cor."""
+    flt = (o.get("filtro") or "").lower()
+    if flt == "pb":
+        img = ImageOps.grayscale(img).convert("RGB")
+    elif flt in ("quente", "frio"):
+        r, g, b = img.split()
+        k = (1.07, 0.92) if flt == "quente" else (0.93, 1.07)
+        img = Image.merge("RGB", (r.point(lambda v: min(255, int(v * k[0]))), g, b.point(lambda v: min(255, int(v * k[1])))))
+    elif flt == "saturado":
+        img = ImageEnhance.Color(img).enhance(1.35)
+    elif flt == "suave":
+        img = ImageEnhance.Contrast(ImageEnhance.Color(img).enhance(0.85)).enhance(0.9)
+    for chave, classe in (("brilho", ImageEnhance.Brightness), ("contraste", ImageEnhance.Contrast),
+                          ("saturacao", ImageEnhance.Color)):
+        v = o.get(chave) or 0
+        if 0.2 <= v <= 2.5 and abs(v - 1) > 0.01:
+            img = classe(img).enhance(v)
+    return img
+
+
+def preparar(ft, aj):
+    """Gira e espelha a foto original, se ela pediu."""
+    aj = aj or {}
+    g = int(aj.get("girar") or 0) % 360
+    if g in (90, 180, 270):
+        ft = ft.rotate(-g, expand=True)          # positivo = sentido horário, como ela fala
+    if aj.get("espelhar"):
+        ft = ImageOps.mirror(ft)
+    return ft
+
+
 def encaixar(ft, tam, ajuste=None):
     """Recorta a foto no tamanho do quadro sem cortar o rosto: o rosto fica inteiro, um pouco acima do meio.
     ajuste = {"zoom": 1.6, "foco_x": 0.5, "foco_y": 0.4}: aproxima e centraliza naquele ponto da foto (-1 = rosto)."""
@@ -327,7 +415,8 @@ def grade(fotos, gap=0, ajustes=None, divisao=0):
         larg = (W - gap * (cols - 1)) // cols
         for c in range(cols):
             ft = ImageOps.exif_transpose(Image.open(fotos[i])).convert("RGB")
-            img.paste(encaixar(ft, (larg, alt), ajustes[i] if i < len(ajustes) else None), (c * (larg + gap), y))
+            aj = ajustes[i] if i < len(ajustes) else None
+            img.paste(encaixar(preparar(ft, aj), (larg, alt), aj), (c * (larg + gap), y))
             i += 1
         y += alt + gap
         if r < len(fileiras) - 1:
@@ -460,6 +549,7 @@ def desenhar_colagem(fotos, opcoes, destino):
     """Várias fotos mandadas juntas pela Dra. viram uma colagem de rotina."""
     img, fil, alt = grade(fotos, gap=8 if opcoes.get("borda") else 0, ajustes=opcoes.get("fotos"),
                           divisao=opcoes.get("divisao") or 0)
+    img = filtrar(img, opcoes)
     texto = "" if opcoes.get("sem_texto") else (opcoes.get("texto") or "").strip()
     if texto:                      # mesmo texto das fotos soltas: segue posição, tamanho e alinhamento pedidos
         pl = plano_texto(img, texto, opcoes, cortes=grade.cortes)
@@ -531,25 +621,32 @@ def plano_texto(base, texto, o, cortes=()):
         y = {"topo": A.TOPO_SEGURO + 80, "meio": int(H * 0.5 - alt / 2), "base": A.BASE_SEGURA - 180 - alt}.get(pos, int(H * 0.5 - alt / 2))
         y = escolher_y(base, alt, y, evitar)      # mesmo pedindo a posição, o texto nunca fica no rosto
     al = {"esquerda": "l", "centro": "c", "direita": "r"}.get(o.get("alinhamento") or "", "c" if pos == "meio" else "l")
-    return {"f": f, "linhas": linhas, "y": y, "alt": alt, "alinh": al, "caixa": caixa, "passo": passo}
+    return {"f": f, "linhas": linhas, "y": y, "alt": alt, "alinh": al, "caixa": caixa, "passo": passo,
+            "cor": o.get("cor_texto") or ""}
+
+
+def _cor(hexa, padrao):
+    m = re.match(r"^#?([0-9a-fA-F]{6})$", (hexa or "").strip())
+    return tuple(int(m.group(1)[i:i + 2], 16) for i in (0, 2, 4)) if m else padrao
 
 
 def escrever(img, pl, sombra=0.75):
     """Desenha o texto planejado (em RGB ou numa camada transparente para vídeo)."""
     f, linhas, y, al = pl["f"], pl["linhas"], pl["y"], pl["alinh"]
+    cor = _cor(pl.get("cor"), BRANCO)
     if pl["caixa"] == "faixa":
-        faixas(img, linhas, y, f, BRANCO, (0, 0, 0, 160), alinh=al, x=92)
+        faixas(img, linhas, y, f, cor, (0, 0, 0, 160), alinh=al, x=92)
     elif pl["caixa"] == "cartao":
-        larg = max(f.getlength(ln) for ln in linhas) + 90
+        larg = max(largura(ln, f) for ln in linhas) + 90
         x0 = (W - larg) / 2 if al == "c" else (W - 92 - larg if al == "r" else 92)
         cam = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         d = ImageDraw.Draw(cam)
         d.rounded_rectangle((x0, y, x0 + larg, y + pl["alt"]), 22, fill=(248, 248, 246, 255))
         for i, ln in enumerate(linhas):
-            d.text((x0 + 45, y + 45 + i * pl["passo"]), ln, font=f, fill=(45, 43, 41, 255))
+            linha(cam, d, x0 + 45, y + 45 + i * pl["passo"], ln, f, _cor(pl.get("cor"), (45, 43, 41)) + (255,))
         img.paste(cam, (0, 0), cam)
     else:
-        texto_com_sombra(img, linhas, y, f, BRANCO, sombra=sombra, alinh=al, x=92)
+        texto_com_sombra(img, linhas, y, f, cor, sombra=sombra, alinh=al, x=92)
 
 
 def _caixa_texto(pl):
@@ -564,7 +661,7 @@ def desenhar_foto(caminho_foto, opcoes, destino):
         caminho_foto = caminho_foto[0]
     ft = ImageOps.exif_transpose(Image.open(caminho_foto)).convert("RGB")
     aj = (opcoes.get("fotos") or [None])[0]
-    ft = encaixar(ft, (W, H), aj)
+    ft = filtrar(encaixar(preparar(ft, aj), (W, H), aj), opcoes)
     img = ImageEnhance.Brightness(ft).enhance(opcoes.get("exposicao") or 1.0)
     texto = "" if opcoes.get("sem_texto") else (opcoes.get("texto") or "").strip()
     if texto:
