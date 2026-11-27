@@ -1,0 +1,96 @@
+{
+ "tema": "direitos do segurado e revisões",
+ "stories": [
+  {
+   "tipo": "bom_dia",
+   "titulo": "boa sexta",
+   "texto": "Bem-aventurados os que têm fome e sede de justiça, porque eles serão fartos. — Mateus 5:6",
+   "fonte": "",
+   "comentario": "que hoje seja leve",
+   "rodape": "",
+   "fundo": "paisagem",
+   "assunto": "versículo de bom dia sexta",
+   "noticia": 0,
+   "bloco": 1,
+   "link": ""
+  },
+  {
+   "tipo": "jurisprudencia",
+   "titulo": "TNU: tempo de dois vínculos pode valer em regimes diferentes",
+   "texto": "Por unanimidade, a TNU decidiu que contribuições pagas ao INSS junto com um emprego público podem valer em regimes diferentes, se o emprego virou cargo de servidor por obrigação legal. O processo volta a julgamento.",
+   "fonte": "IBDP/CJF · 24/11",
+   "comentario": "",
+   "rodape": "",
+   "fundo": "pinterest-justica",
+   "assunto": "TNU e contagem em dois regimes",
+   "noticia": 1,
+   "bloco": 2,
+   "link": "https://www.ibdp.org.br/2026/11/24/tnu-reafirma-possibilidade-de-usar-contribuicoes-simultaneas-em-regimes-previdenciarios-distintos-apos-mudanca-obrigatoria-de-regime/"
+  },
+  {
+   "tipo": "jurisprudencia",
+   "titulo": "E o que isso muda pra você?",
+   "texto": "A regra geral continua: o mesmo tempo não vale em dois regimes. A exceção é a troca obrigatória de regime, desde que nenhum período seja contado duas vezes.",
+   "fonte": "IBDP/CJF · 24/11",
+   "comentario": "E mostra algo importante: vale conferir se o seu benefício foi calculado direito.",
+   "rodape": "",
+   "fundo": "sala",
+   "assunto": "exceção na troca obrigatória",
+   "noticia": 1,
+   "bloco": 2,
+   "link": "https://www.ibdp.org.br/2026/11/24/tnu-reafirma-possibilidade-de-usar-contribuicoes-simultaneas-em-regimes-previdenciarios-distintos-apos-mudanca-obrigatoria-de-regime/"
+  },
+  {
+   "tipo": "segurado",
+   "titulo": "Revisar o benefício: o que é, na prática",
+   "texto": "Revisão é pedir que o INSS confira o cálculo de um benefício já concedido. Um erro que se repete muito: vínculo ou salário faltando no CNIS, o que pesa no cálculo.",
+   "fonte": "",
+   "comentario": "",
+   "rodape": "",
+   "fundo": "pinterest-estilo",
+   "assunto": "o que é revisão",
+   "noticia": 0,
+   "bloco": 3,
+   "link": ""
+  },
+  {
+   "tipo": "dica",
+   "titulo": "E quanto tempo eu tenho para isso?",
+   "texto": "Em regra, 10 anos para pedir a revisão do cálculo. Já para recorrer de uma negativa ao CRPS, o prazo é curto: 30 dias da ciência da decisão.",
+   "fonte": "",
+   "comentario": "",
+   "rodape": "",
+   "fundo": "retrato-claro",
+   "assunto": "prazos de revisão e recurso",
+   "noticia": 0,
+   "bloco": 3,
+   "link": ""
+  },
+  {
+   "tipo": "curiosidade",
+   "titulo": "Agora, uma curiosidade de fim de ano",
+   "texto": "O 13º de aposentados e pensionistas tem nome oficial: abono anual. Já o BPC/LOAS, por ser assistencial e não aposentadoria, não paga esse 13º.",
+   "fonte": "",
+   "comentario": "",
+   "rodape": "",
+   "fundo": "pinterest-cafe",
+   "assunto": "nome oficial do 13º",
+   "noticia": 0,
+   "bloco": 4,
+   "link": ""
+  },
+  {
+   "tipo": "segurado",
+   "titulo": "Resumindo a conversa de hoje",
+   "texto": "Exceções existem, como mostrou a TNU. Confira seu CNIS no Meu INSS, guarde carteira, holerites e recibos e fique atento aos prazos. Cada caso pede análise.",
+   "fonte": "",
+   "comentario": "",
+   "rodape": "dúvidas? manda no direct",
+   "fundo": "retrato-pb",
+   "assunto": "resumo direitos e revisões",
+   "noticia": 0,
+   "bloco": 4,
+   "link": ""
+  }
+ ]
+}
