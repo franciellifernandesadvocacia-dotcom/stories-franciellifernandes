@@ -124,10 +124,12 @@ def cartao_noticia(img, story, rot):
     for ln in rl:
         d.text((120, y), ln, font=f_res, fill=(70, 68, 66))
         y += 54
+    # sempre deixa claro que é notícia; caso real e jurisprudência ganham a etiqueta ao lado
+    f_nd = fonte("detalhe", 40)
+    texto_com_sombra(img, ["Notícia do dia"], y0 - 86, f_nd, BRANCO, alinh="l", x=92)
     if rot and rot.upper() not in ("NOTÍCIA",):
-        faixas(img, [rot.upper()], y0 - 80, fonte("rotulo", 32), BRANCO, (0, 0, 0, 170), alinh="l", x=92)
-    else:
-        texto_com_sombra(img, ["Notícia do dia"], y0 - 86, fonte("detalhe", 40), BRANCO, alinh="l", x=92)
+        faixas(img, [rot.upper()], y0 - 80, fonte("rotulo", 28), BRANCO, (0, 0, 0, 170), alinh="l",
+               x=92 + int(f_nd.getlength("Notícia do dia")) + 40)
 
 
 def italico(texto, f, cor, largura):
