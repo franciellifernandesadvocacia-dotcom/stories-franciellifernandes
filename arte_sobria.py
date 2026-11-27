@@ -242,9 +242,10 @@ def diario(img, story):
     f1, f2 = maquina(44), maquina(38)
     y = A.TOPO_SEGURO + 60
     y = texto_com_sombra(img, A.quebrar(story["titulo"], f1, 760), y, f1, BRANCO, entre=1.25, sombra=0.55, alinh="l", x=92)
-    d = ImageDraw.Draw(img)
-    d.line([(96, y + 30), (96, y + 110)], fill=BRANCO, width=3)
-    y = texto_com_sombra(img, A.quebrar(story["texto"], f2, 760), y + 150, f2, BRANCO, entre=1.3, sombra=0.55, alinh="l", x=92)
+    if story.get("texto"):                    # sem segundo texto, não desenha a barrinha
+        d = ImageDraw.Draw(img)
+        d.line([(96, y + 30), (96, y + 110)], fill=BRANCO, width=3)
+        y = texto_com_sombra(img, A.quebrar(story["texto"], f2, 760), y + 150, f2, BRANCO, entre=1.3, sombra=0.55, alinh="l", x=92)
     frase = story.get("comentario") or story.get("rodape") or ""
     if frase:
         fb = fonte("titulo", 46)
