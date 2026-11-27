@@ -1,6 +1,7 @@
 {
  "noticias": [
-  "TNU: tempo de dois vínculos pode valer em regimes diferentes"
+  "TNU: tempo de dois vínculos pode valer em regimes diferentes",
+  "STJ libera o reuso da extensão do período de graça"
  ],
  "assuntos": [
   "versículo de bom dia sexta",
@@ -9,13 +10,22 @@
   "o que é revisão",
   "prazos de revisão e recurso",
   "nome oficial do 13º",
-  "resumo direitos e revisões"
+  "resumo direitos e revisões",
+  "versículo de bom dia sábado",
+  "STJ reuso do período de graça",
+  "o que muda no período de graça",
+  "novos nomes dos benefícios",
+  "auxílio-acidente junto com salário",
+  "exceções às 12 contribuições",
+  "resumo incapacidade e perícia"
  ],
  "dias": [
-  "2026-11-27"
+  "2026-11-27",
+  "2026-11-28"
  ],
  "temas": [
-  "direitos do segurado e revisões"
+  "direitos do segurado e revisões",
+  "benefícios por incapacidade"
  ],
  "links": [
   {
@@ -23,6 +33,12 @@
    "titulo": "TNU: tempo de dois vínculos pode valer em regimes diferentes",
    "fonte": "IBDP/CJF · 24/11",
    "link": "https://www.ibdp.org.br/2026/11/24/tnu-reafirma-possibilidade-de-usar-contribuicoes-simultaneas-em-regimes-previdenciarios-distintos-apos-mudanca-obrigatoria-de-regime/"
+  },
+  {
+   "dia": "2026-11-28",
+   "titulo": "STJ libera o reuso da extensão do período de graça",
+   "fonte": "Migalhas · 23/11",
+   "link": "https://www.migalhas.com.br/depeso/468616/sete-anos-da-reforma-da-previdencia-mudancas-e-decisoes-dos-tribunais"
   }
  ],
  "fotos": [
@@ -32,9 +48,22 @@
   "pinterest-estilo-03",
   "retrato-claro-08",
   "pinterest-cafe-01",
-  "retrato-pb-04"
+  "retrato-pb-04",
+  "paisagem-06",
+  "pinterest-justica-02",
+  "notebook-03",
+  "retrato-claro-06",
+  "retrato-claro-11",
+  "retrato-claro-10",
+  "retrato-claro-02",
+  "retrato-claro-07",
+  "retrato-claro-03",
+  "pinterest-estilo-05",
+  "retrato-pb-09",
+  "pinterest-cafe-03"
  ],
  "versiculos": [
-  "Mateus 5:6"
+  "Mateus 5:6",
+  "Salmos 118:24"
  ]
 }

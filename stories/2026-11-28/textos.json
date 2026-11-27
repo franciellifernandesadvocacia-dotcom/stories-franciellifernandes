@@ -1,0 +1,96 @@
+{
+ "tema": "benefícios por incapacidade",
+ "stories": [
+  {
+   "tipo": "bom_dia",
+   "titulo": "bom dia",
+   "texto": "Este é o dia que fez o Senhor; regozijemo-nos e alegremo-nos nele. — Salmos 118:24",
+   "fonte": "",
+   "comentario": "que o sábado seja leve",
+   "rodape": "",
+   "fundo": "paisagem",
+   "assunto": "versículo de bom dia sábado",
+   "noticia": 0,
+   "bloco": 1,
+   "link": ""
+  },
+  {
+   "tipo": "jurisprudencia",
+   "titulo": "STJ libera o reuso da extensão do período de graça",
+   "texto": "Segundo o Migalhas, em 11/11 a 1ª Seção do STJ decidiu, por unanimidade, que quem tem mais de 120 contribuições pode usar de novo a extensão do período de graça. O acórdão ainda não foi publicado.",
+   "fonte": "Migalhas · 23/11",
+   "comentario": "",
+   "rodape": "",
+   "fundo": "pinterest-justica",
+   "assunto": "STJ reuso do período de graça",
+   "noticia": 1,
+   "bloco": 1,
+   "link": "https://www.migalhas.com.br/depeso/468616/sete-anos-da-reforma-da-previdencia-mudancas-e-decisoes-dos-tribunais"
+  },
+  {
+   "tipo": "jurisprudencia",
+   "titulo": "E o que isso muda pra você?",
+   "texto": "É o tempo em que você segue protegido pelo INSS sem contribuir. Com mais de 120 contribuições, vai a 24 meses (36 com desemprego involuntário), e esse direito pode se repetir.",
+   "fonte": "Migalhas · 23/11",
+   "comentario": "Às 11h30, curiosidades leves sobre os benefícios por incapacidade.",
+   "rodape": "",
+   "fundo": "notebook",
+   "assunto": "o que muda no período de graça",
+   "noticia": 1,
+   "bloco": 1,
+   "link": "https://www.migalhas.com.br/depeso/468616/sete-anos-da-reforma-da-previdencia-mudancas-e-decisoes-dos-tribunais"
+  },
+  {
+   "tipo": "curiosidade",
+   "titulo": "Sábado de curiosidades: nomes que mudaram",
+   "texto": "Sabia que o auxílio-doença e a aposentadoria por invalidez mudaram de nome? Hoje são auxílio por incapacidade temporária e aposentadoria por incapacidade permanente.",
+   "fonte": "",
+   "comentario": "",
+   "rodape": "",
+   "fundo": "retrato-claro",
+   "assunto": "novos nomes dos benefícios",
+   "noticia": 0,
+   "bloco": 2,
+   "link": ""
+  },
+  {
+   "tipo": "curiosidade",
+   "titulo": "Benefício e salário ao mesmo tempo",
+   "texto": "O auxílio-acidente é uma indenização para quem fica com sequela que reduz a capacidade de trabalho. E pode ser recebido junto com o salário. Pouca gente sabe.",
+   "fonte": "",
+   "comentario": "",
+   "rodape": "",
+   "fundo": "pinterest-estilo",
+   "assunto": "auxílio-acidente junto com salário",
+   "noticia": 0,
+   "bloco": 2,
+   "link": ""
+  },
+  {
+   "tipo": "curiosidade",
+   "titulo": "Nem todo caso exige 12 contribuições",
+   "texto": "Em regra, o auxílio por incapacidade pede 12 contribuições. Mas acidentes de qualquer natureza e algumas doenças graves previstas em lei dispensam esse mínimo.",
+   "fonte": "",
+   "comentario": "",
+   "rodape": "",
+   "fundo": "retrato-pb",
+   "assunto": "exceções às 12 contribuições",
+   "noticia": 0,
+   "bloco": 2,
+   "link": ""
+  },
+  {
+   "tipo": "incapacidade",
+   "titulo": "Resumindo o sábado",
+   "texto": "Nomes novos, auxílio-acidente junto com o salário e exceções às 12 contribuições. E na perícia, laudos, exames e atestados recentes fazem diferença.",
+   "fonte": "",
+   "comentario": "",
+   "rodape": "dúvidas? manda no direct",
+   "fundo": "pinterest-cafe",
+   "assunto": "resumo incapacidade e perícia",
+   "noticia": 0,
+   "bloco": 2,
+   "link": ""
+  }
+ ]
+}
