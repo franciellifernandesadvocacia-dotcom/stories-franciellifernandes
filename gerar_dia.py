@@ -125,8 +125,9 @@ ESQUEMA = {
             "fundo": {"type": "string"},
             "assunto": {"type": "string"},
             "noticia": {"type": "integer"},
+            "bloco": {"type": "integer"},
         },
-        "required": ["tipo", "titulo", "texto", "fonte", "comentario", "rodape", "fundo", "assunto", "noticia"],
+        "required": ["tipo", "titulo", "texto", "fonte", "comentario", "rodape", "fundo", "assunto", "noticia", "bloco"],
         "additionalProperties": False}},
         "tema_do_dia": {"type": "string", "enum": TEMAS}},
     "required": ["tema_do_dia", "stories"], "additionalProperties": False}
@@ -177,6 +178,11 @@ Limites: titulo até 60 caracteres e texto até 170 (exceto bom_dia e notícia, 
 "fonte" vazio e "noticia" = 0 quando não for notícia; "comentario" vazio quando não for notícia, exceto no
 bom_dia se as instruções do bom_dia pedirem uma frase de fechamento.
 "fundo": escolha um destes: {fundos} ({PERFIL["fundos_dica"]}).
+"bloco": os stories saem ao longo do dia em BLOCOS; os do mesmo bloco saem juntos, um atrás do outro.
+Ponha no mesmo bloco o que só faz sentido visto junto: os dois stories da notícia (manchete + o que muda)
+ficam SEMPRE no mesmo bloco; uma pergunta fica no bloco da resposta; os passos de uma mesma explicação
+ficam juntos. O bom_dia é sozinho no bloco 1. Numere os blocos em ordem (1, 2, 3...), de 1 a 3 stories
+por bloco, entre 3 e 5 blocos no dia.
 "assunto": 3 a 6 palavras resumindo cada story. Não repita estes assuntos recentes:
 {"; ".join(hist.get("assuntos", [])[-40:]) or "nenhum"}.
 
@@ -222,13 +228,52 @@ if PERFIL.get("exemplo"):
     EXEMPLO_TEMA, EXEMPLO = PERFIL["exemplo"]["tema"], PERFIL["exemplo"]["stories"]
 
 
-def horarios(n):
-    """Espalha n stories entre 07:00 e 21:00."""
-    if n == 1:
-        return ["09:00"]
-    ini, fim = 7 * 60, 21 * 60
-    return [f"{(ini + i * (fim - ini) // (n - 1)) // 60:02d}:{(ini + i * (fim - ini) // (n - 1)) % 60:02d}"
-            for i in range(n)]
+PRIMEIRO_STORY = os.environ.get("PRIMEIRO_STORY", "08:00")   # o dia começa às 8h
+ULTIMO_BLOCO = "20:00"
+
+
+def _min(h):
+    return int(h[:2]) * 60 + int(h[3:5])
+
+
+def blocos(stories):
+    """Agrupa os stories que precisam sair juntos. Usa o "bloco" que o Claude escolheu; sem ele (exemplo),
+    junta os dois stories da mesma notícia e a pergunta com a resposta."""
+    if stories and all(isinstance(s.get("bloco"), int) and s["bloco"] > 0 for s in stories):
+        grupos = []
+        for s_ in stories:
+            if grupos and grupos[-1][-1].get("bloco") == s_["bloco"] and len(grupos[-1]) < 4:
+                grupos[-1].append(s_)
+            else:
+                grupos.append([s_])
+        return grupos
+    grupos = []
+    for k, s_ in enumerate(stories):
+        ant = stories[k - 1] if k else None
+        junto = ant is not None and grupos and len(grupos[-1]) < 3 and (
+            (s_.get("tipo") in ("noticia", "caso_real", "jurisprudencia") and ant.get("tipo") == s_.get("tipo"))
+            or ant.get("tipo") == "pergunta")
+        if junto:
+            grupos[-1].append(s_)
+        else:
+            grupos.append([s_])
+    return grupos
+
+
+def horarios(n, stories=None):
+    """Primeiro story às 8h; os blocos se espalham até as 20h e, dentro do bloco, saem um atrás do outro
+    (1 minuto de diferença, para a ordem ficar certa)."""
+    grupos = blocos(stories) if stories else [[None]] * n
+    ini, fim = _min(PRIMEIRO_STORY), _min(ULTIMO_BLOCO)
+    passo = (fim - ini) // max(1, len(grupos) - 1) if len(grupos) > 1 else 0
+    passo -= passo % 10
+    saida = []
+    for g, grupo in enumerate(grupos):
+        base = ini + g * passo
+        for k in range(len(grupo)):
+            m = base + k
+            saida.append(f"{m // 60:02d}:{m % 60:02d}")
+    return saida[:n]
 
 
 def ler_historico():
@@ -290,7 +335,7 @@ def gerar_exemplo():
     não marca o dia como gerado e nunca é publicado."""
     pasta = os.path.join(P.PASTA_STORIES, "exemplo")
     shutil.rmtree(pasta, ignore_errors=True)
-    for i, (s, hora) in enumerate(zip(EXEMPLO, horarios(len(EXEMPLO))), start=1):
+    for i, (s, hora) in enumerate(zip(EXEMPLO, horarios(len(EXEMPLO), EXEMPLO)), start=1):
         arte_natural.desenhar(s, os.path.join(pasta, f"{i:02d}-{s['tipo'].replace('_', '-')}.jpg"))
         print(f"{hora}  exemplo/{i:02d}  {s['titulo']}")
     with open(os.path.join(pasta, "textos.json"), "w", encoding="utf-8") as f:
@@ -329,7 +374,7 @@ def gerar(dia, exemplo=False):
     arte_natural.USADAS[:] = hist.get("fotos", [])
     status = "aprovado" if os.environ.get("APROVACAO", "obrigatoria") == "automatica" else "aguardando"
     linhas = []
-    for i, (s, hora) in enumerate(zip(stories, horarios(len(stories))), start=1):
+    for i, (s, hora) in enumerate(zip(stories, horarios(len(stories), stories)), start=1):
         arq = f"{dia.isoformat()}/{i:02d}-{s['tipo'].replace('_', '-')}.jpg"
         arte_natural.desenhar(s, os.path.join(P.PASTA_STORIES, arq))
         linhas.append({"arquivo": arq, "data": dia.isoformat(), "hora": hora, "status": status, "lote": dia.isoformat()})

@@ -243,7 +243,7 @@ def desenhar(story, caminho):
     tipo = story.get("tipo", "dica")
     img = foto_escura(story.get("fundo", ""))
     CONTADOR[0] += 1
-    rot = A.ROTULOS.get(tipo, "")
+    rot = story.get("rotulo") or A.ROTULOS.get(tipo, "")
     tipos_noticia = ("noticia", "caso_real", "jurisprudencia")
 
     if tipo in tipos_noticia and not story.get("comentario"):
@@ -422,3 +422,29 @@ def camada_video(quadro, opcoes):
         escrever(cam, pl, 0.75 if opcoes.get("sombra", True) else 0)
     marca(cam)
     return cam, k
+
+
+def desenhar_post(caminho_img, txt, destino):
+    """Story que avisa do post novo: a arte do post em um cartão no meio, com o resumo embaixo."""
+    fundo = ImageOps.fit(ImageOps.exif_transpose(Image.open(caminho_img)).convert("RGB"), (W, H))
+    img = ImageEnhance.Brightness(fundo.filter(ImageFilter.GaussianBlur(40))).enhance(0.35)
+    post = ImageOps.exif_transpose(Image.open(caminho_img)).convert("RGB")
+    post.thumbnail((720, 720))
+    x, y = (W - post.width) // 2, A.TOPO_SEGURO + 120
+    sombra = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(sombra).rounded_rectangle((x, y + 16, x + post.width, y + post.height + 16), 24, fill=180)
+    img.paste((0, 0, 0), (0, 0), sombra.filter(ImageFilter.GaussianBlur(26)))
+    masc = Image.new("L", post.size, 0)
+    ImageDraw.Draw(masc).rounded_rectangle((0, 0, post.width, post.height), 24, fill=255)
+    img.paste(post, (x, y), masc)
+    yy = y - 80
+    texto_com_sombra(img, ["post novo no feed"], yy, maquina(34), BRANCO, sombra=0, alinh="c")
+    yy = y + post.height + 70
+    f_t, f_c = fonte("titulo", 58), fonte("texto", 40)
+    yy = texto_com_sombra(img, A.quebrar(txt.get("titulo", ""), f_t, 880), yy, f_t, BRANCO, sombra=0) + 18
+    texto_com_sombra(img, A.quebrar(txt.get("texto", ""), f_c, 860), yy, f_c, CREME, sombra=0)
+    texto_com_sombra(img, ["o post completo está no meu perfil"], A.BASE_SEGURA - 150, maquina(30), BRANCO, sombra=0)
+    marca(img)
+    os.makedirs(os.path.dirname(destino), exist_ok=True)
+    img.save(destino, quality=88, optimize=True)
+    return destino

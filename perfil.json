@@ -3,7 +3,7 @@
  "handle": "@franciellifernandes.adv",
  "estilo": "sobrio",
  "descricao": "Você escreve os stories diários do Instagram @franciellifernandes.adv, perfil profissional da\nadvogada Dra. Francielli Fernandes (Fernandes Advocacia, Várzea Grande/MT), com foco em Direito\nPrevidenciário (INSS).",
- "tom": "Tom: sóbrio, elegante e acolhedor, como uma advogada conversando com calma. Frases curtas e\nclaras, português do Brasil, sem juridiquês e sem gírias. Nada de hashtags, emojis ou exclamações em excesso.",
+ "tom": "Tom: o dia a dia de uma advogada previdenciarista contado no story, leve e próximo, como ela falaria com quem a acompanha: frases curtas, primeira pessoa quando fizer sentido, sóbrio e elegante, sem cara de aula. Português do Brasil, sem juridiquês e sem gírias. Nada de hashtags, emojis ou exclamações em excesso. Story não é apostila: o conteúdo informativo mais denso fica para o feed; aqui é uma ideia por story, ligada à prática (o que costuma acontecer, o erro comum, o que observar).",
  "area": "previdenciário",
  "temas": [
   "aposentadoria",
@@ -197,7 +197,7 @@
   "sábado": "dia leve: sequência mais curta de CURIOSIDADES verdadeiras e divertidas sobre o INSS (tipo curiosidade), sem perder a elegância",
   "domingo": "dia leve: uma reflexão curta + uma CURIOSIDADE verdadeira sobre a Previdência (tipo curiosidade)"
  },
- "regras_extra": "Casos reais: use SÓ casos noticiados publicamente na lista de notícias. Nunca diga ou insinue que o caso é do escritório ou da Dra. Nunca cite nome de partes, e jamais identifique crianças. Diga o tribunal (ex.: \"a Justiça Federal em SP\", \"o TRF-1\") e conte o que foi decidido, sem prometer o mesmo resultado a ninguém (cada caso é analisado). Curiosidades: só fatos verdadeiros da base de conhecimento ou das notícias; o tom pode ser leve e bem-humorado, mas sempre elegante e respeitoso.",
+ "regras_extra": "Casos reais: use SÓ casos noticiados publicamente na lista de notícias. Nunca diga ou insinue que o caso é do escritório ou da Dra. Nunca cite nome de partes, e jamais identifique crianças. Diga o tribunal (ex.: \"a Justiça Federal em SP\", \"o TRF-1\") e conte o que foi decidido, sem prometer o mesmo resultado a ninguém (cada caso é analisado). Curiosidades: só fatos verdadeiros da base de conhecimento ou das notícias; o tom pode ser leve e bem-humorado, mas sempre elegante e respeitoso. Bastidores e casos do escritório só existem quando a Dra. manda pelo Telegram (mensagem CASO:); na sequência automática nunca diga que algo aconteceu no escritório. Pode falar da prática em termos gerais (\"é comum o INSS negar por...\", \"um erro que se repete muito é...\").",
  "fontes": {
   "titulo": [
    "InstrumentSans.ttf",
@@ -228,5 +228,6 @@
  },
  "exposicao": 0.5,
  "sombra_texto": 0,
- "bom_dia_cartao": true
+ "bom_dia_cartao": true,
+ "story_de_post": true
 }

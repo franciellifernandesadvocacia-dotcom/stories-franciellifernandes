@@ -236,6 +236,17 @@ def ler_respostas(_tg=None, agora=None):
             except Exception as ex:
                 P.avisar(f"não consegui montar o story da foto: {ex}")
             continue
+        import relato
+        if relato.e_relato(msg.get("text", "")):
+            try:
+                if mudou:
+                    gravar_linhas(campos, linhas)
+                relato.processar_caso(msg["text"], chat, _tg)
+                campos, linhas = ler_linhas()
+                mudou = False
+            except Exception as ex:
+                P.avisar(f"não consegui montar os stories do caso: {ex}")
+            continue
         cmd = comando_modo(msg.get("text", ""))
         if cmd:
             resposta = aplicar_modo(cmd, e, linhas, agora or dt.datetime.now(P.fuso()))
@@ -245,9 +256,9 @@ def ler_respostas(_tg=None, agora=None):
         if msg.get("text", "").strip().lower().startswith("cancelar"):
             futuras = [l for l in linhas if l.get("lote") == "enviada" and l.get("status") == "aprovado"]
             if futuras:
-                base = re.sub(r"-parte\d+(?=\.mp4$)", "", futuras[-1]["arquivo"])
-                for l in futuras:                  # vídeo longo: cancela todas as partes juntas
-                    if re.sub(r"-parte\d+(?=\.mp4$)", "", l["arquivo"]) == base:
+                base = re.sub(r"-parte\d+(?=\.(mp4|jpg)$)", "", futuras[-1]["arquivo"])
+                for l in futuras:                  # vídeo longo ou caso: cancela todas as partes juntas
+                    if re.sub(r"-parte\d+(?=\.(mp4|jpg)$)", "", l["arquivo"]) == base:
                         l["status"] = "tirado"
                 mudou = True
                 _tg("sendMessage", {"chat_id": chat, "text": "Cancelado: o último story enviado por você não vai sair."})

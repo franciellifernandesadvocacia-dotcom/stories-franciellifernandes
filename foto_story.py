@@ -161,7 +161,7 @@ def horario(quando, agora, ocupados):
         return minimo
     t = (agora + dt.timedelta(minutes=30)).replace(minute=0, second=0, microsecond=0) + dt.timedelta(hours=1)
     for _ in range(48):
-        if 7 <= t.hour <= 21 and all(abs((t - o).total_seconds()) > 40 * 60 for o in ocupados):
+        if 8 <= t.hour <= 21 and all(abs((t - o).total_seconds()) > 40 * 60 for o in ocupados):
             return t
         t += dt.timedelta(minutes=30)
     return minimo

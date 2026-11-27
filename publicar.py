@@ -43,7 +43,7 @@ FILA = os.path.join(AQUI, "fila.csv")
 REGISTRO = os.path.join(AQUI, "registro.csv")
 FUSO = os.environ.get("FUSO", "America/Cuiaba")
 ATRASO_MAXIMO_HORAS = float(os.environ.get("ATRASO_MAXIMO_HORAS", "6"))
-MAX_POR_RODADA = int(os.environ.get("MAX_POR_RODADA", "3"))
+MAX_POR_RODADA = int(os.environ.get("MAX_POR_RODADA", "6"))   # um bloco inteiro sai na mesma rodada
 TAM_MAX_BYTES = 8 * 1024 * 1024
 CAMPOS_REGISTRO = ["quando", "arquivo", "agendado_para", "resultado", "id_instagram", "detalhe"]
 
@@ -332,6 +332,11 @@ def rodada(ig, agora):
         aprovacao.ler_respostas()
     except Exception as e:  # problema no Telegram não impede publicar o que já foi aprovado
         print("não consegui ler as respostas do Telegram:", e)
+    try:
+        import relato
+        relato.story_de_posts(ig, agora)
+    except Exception as e:  # conferir o feed nunca impede publicar
+        print("não consegui conferir os posts do feed:", e)
     itens, probs = ler_fila()
     lembrar_aprovacao(itens, agora)
     for p in probs:
