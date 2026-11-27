@@ -1,0 +1,60 @@
+{
+ "tema": "BPC/LOAS",
+ "stories": [
+  {
+   "tipo": "bom_dia",
+   "titulo": "muito bom dia",
+   "texto": "Este é o dia que fez o Senhor; regozijemo-nos e alegremo-nos nele. — Salmos 118:24",
+   "fundo": "pinterest-cafe",
+   "comentario": "que hoje seja leve",
+   "layout": "cartao"
+  },
+  {
+   "tipo": "noticia",
+   "titulo": "(EXEMPLO) Mudança no atendimento do INSS",
+   "texto": "Notícia de exemplo, só para testar o robô sem chamar o Claude. Aqui entra o resumo da matéria lida.",
+   "fonte": "Migalhas · 01/12",
+   "fundo": "pinterest-trabalho",
+   "link": "https://example.com/noticia"
+  },
+  {
+   "tipo": "noticia",
+   "titulo": "E o que isso muda para você?",
+   "texto": "Aqui entra a explicação do que a notícia muda na vida de quem depende do INSS.",
+   "fonte": "Migalhas · 01/12",
+   "comentario": "E isso tem tudo a ver com o BPC, o assunto de hoje.",
+   "fundo": "pinterest-justica",
+   "link": "https://example.com/noticia",
+   "layout": "faixa"
+  },
+  {
+   "tipo": "bpc_loas",
+   "titulo": "O BPC não é aposentadoria",
+   "texto": "É um benefício assistencial de um salário mínimo para idosos a partir de 65 anos ou pessoas com deficiência.",
+   "fundo": "retrato-escuro",
+   "layout": "destaque"
+  },
+  {
+   "tipo": "bpc_loas",
+   "titulo": "Quem pode pedir?",
+   "texto": "Quem não tem meios de se manter nem de ser mantido pela família. A renda da família é analisada.",
+   "fundo": "pinterest-cafe",
+   "layout": "topo_esq"
+  },
+  {
+   "tipo": "bpc_loas",
+   "titulo": "Um detalhe importante",
+   "texto": "O BPC não paga 13º e não deixa pensão por morte.",
+   "fundo": "pinterest-estilo",
+   "layout": "centro"
+  },
+  {
+   "tipo": "dica",
+   "titulo": "Resumindo",
+   "texto": "Antes de desistir de um pedido negado, vale entender o motivo da negativa.",
+   "fundo": "cafe",
+   "rodape": "dúvidas? me chama no direct",
+   "layout": "base_esq"
+  }
+ ]
+}
