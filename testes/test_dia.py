@@ -154,6 +154,10 @@ class TestAprovacao(Ambiente):
         self.assertEqual(A.interpretar("Não"), ("nao", set()))
         self.assertEqual(A.interpretar("não 3"), ("ok", {3}))
         self.assertEqual(A.interpretar("bom dia!"), (None, set()))
+        self.assertEqual(A.interpretar("Não corte a cabeça e coloca o texto entre as fotos"), (None, set()))
+        self.assertEqual(A.interpretar("Ok, mas sobe o texto"), (None, set()))
+        self.assertEqual(A.interpretar("ok!"), ("ok", set()))
+        self.assertEqual(A.interpretar("Sim"), ("ok", set()))
 
     def test_fluxo_completo(self):
         G.gerar(DIA, exemplo=True)
