@@ -117,7 +117,7 @@ class TestGerar(Ambiente):
         self.assertNotIn("inventada", pedido)          # link que não veio da busca é descartado
         self.assertNotIn("não lida", pedido)           # matéria que não foi aberta não entra
         self.assertEqual(chamadas[0]["tools"][1]["type"], "web_fetch_20260209")
-        self.assertIn("SEQUÊNCIA", pedido)
+        self.assertIn("CADA STORY SE SUSTENTA SOZINHO", pedido)
         self.assertEqual(chamadas[2]["output_config"]["format"]["type"], "json_schema")
         self.assertEqual(chamadas[2]["model"], "claude-opus-5-5")
         with open(G.HISTORICO, encoding="utf-8") as f:
