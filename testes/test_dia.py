@@ -196,6 +196,32 @@ class TestAprovacao(Ambiente):
         self.assertEqual(status.count("tirado"), 1)
         self.assertEqual(status.count("aprovado"), 6)
 
+    def test_liga_e_desliga_pelo_telegram(self):
+        self.assertEqual(A.comando_modo("Só fotos hoje"), "hoje")
+        self.assertEqual(A.comando_modo("SÓ FOTOS"), "desligar")
+        self.assertEqual(A.comando_modo("desliga o automático"), "desligar")
+        self.assertEqual(A.comando_modo("Você comanda"), "ligar")
+        self.assertIsNone(A.comando_modo("ok menos 3"))
+        os.environ["APROVACAO"] = "automatica"
+        G.gerar(DIA, exemplo=True)
+        status = lambda: [i["status"] for i in P.ler_fila()[0]]
+        # hoje = 01/12 às 12:00: os 3 primeiros já passaram; só os da tarde pausam
+        tg = TelegramFalso(["só fotos hoje"])
+        A.ler_respostas(_tg=tg, agora=self.agora("2026-12-01 12:00"))
+        self.assertEqual(status().count("pausado"), 4)
+        self.assertIn("hoje só saem as fotos", tg.enviados[-1][1]["text"])
+        A.ler_respostas(_tg=TelegramFalso(["você comanda"]), agora=self.agora("2026-12-01 13:00"))
+        self.assertEqual(status().count("aprovado"), 7)
+        # desligado de vez: pausa tudo que falta e o gerador não cria o dia seguinte
+        A.ler_respostas(_tg=TelegramFalso(["SÓ FOTOS"]), agora=self.agora("2026-11-30 20:00"))
+        self.assertEqual(status().count("pausado"), 7)
+        self.assertEqual(A.ler_estado()["modo"], "so_fotos")
+        G.gerar(DIA + dt.timedelta(days=1), exemplo=True)
+        self.assertFalse(any(i["arquivo"].startswith("2026-12-02") for i in P.ler_fila()[0]))
+        A.ler_respostas(_tg=TelegramFalso(["Você comanda"]), agora=self.agora("2026-11-30 20:30"))
+        G.gerar(DIA + dt.timedelta(days=1), exemplo=True)
+        self.assertTrue(any(i["arquivo"].startswith("2026-12-02") for i in P.ler_fila()[0]))
+
     def test_resposta_de_outra_pessoa_e_ignorada(self):
         G.gerar(DIA, exemplo=True)
         A.salvar_estado({"offset": 0, "ultimo_lote": "2026-12-01", "lembrete": ""})
