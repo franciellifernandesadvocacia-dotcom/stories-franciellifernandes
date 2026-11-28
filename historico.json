@@ -17,15 +17,24 @@
   "novos nomes dos benefícios",
   "auxílio-acidente junto com salário",
   "exceções às 12 contribuições",
-  "resumo incapacidade e perícia"
+  "resumo incapacidade e perícia",
+  "versículo de bom dia domingo",
+  "BPC é aposentadoria pergunta",
+  "BPC não é aposentadoria",
+  "para quem é o BPC",
+  "renda familiar no BPC",
+  "BPC sem 13º nem pensão",
+  "resumo BPC e CadÚnico"
  ],
  "dias": [
   "2026-11-27",
-  "2026-11-28"
+  "2026-11-28",
+  "2026-11-29"
  ],
  "temas": [
   "direitos do segurado e revisões",
-  "benefícios por incapacidade"
+  "benefícios por incapacidade",
+  "BPC/LOAS"
  ],
  "links": [
   {
@@ -60,10 +69,18 @@
   "retrato-claro-03",
   "pinterest-estilo-05",
   "retrato-pb-09",
-  "pinterest-cafe-03"
+  "pinterest-cafe-03",
+  "paisagem-01",
+  "pinterest-cafe-05",
+  "retrato-claro-05",
+  "pinterest-estilo-02",
+  "retrato-pb-06",
+  "pinterest-trabalho-02",
+  "notebook-09"
  ],
  "versiculos": [
   "Mateus 5:6",
-  "Salmos 118:24"
+  "Salmos 118:24",
+  "Provérbios 31:8"
  ]
 }

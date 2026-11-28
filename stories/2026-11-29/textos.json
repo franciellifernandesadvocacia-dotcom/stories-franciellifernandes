@@ -1,0 +1,96 @@
+{
+ "tema": "BPC/LOAS",
+ "stories": [
+  {
+   "tipo": "bom_dia",
+   "titulo": "muito bom dia",
+   "texto": "Abre a tua boca a favor do mudo, pelo direito de todos os que se acham em desolação. — Provérbios 31:8",
+   "fonte": "",
+   "comentario": "que o domingo seja de descanso",
+   "rodape": "",
+   "fundo": "paisagem",
+   "assunto": "versículo de bom dia domingo",
+   "noticia": 0,
+   "bloco": 1,
+   "link": ""
+  },
+  {
+   "tipo": "pergunta",
+   "titulo": "Uma pergunta para o domingo",
+   "texto": "Hoje a conversa é leve. Uma dúvida que aparece muito: quem recebe o BPC/LOAS está aposentado? Pensa um pouco antes de ver a resposta.",
+   "fonte": "",
+   "comentario": "",
+   "rodape": "",
+   "fundo": "pinterest-cafe",
+   "assunto": "BPC é aposentadoria pergunta",
+   "noticia": 0,
+   "bloco": 1,
+   "link": ""
+  },
+  {
+   "tipo": "curiosidade",
+   "titulo": "A resposta é não",
+   "texto": "O BPC é um benefício assistencial, não uma aposentadoria. Por isso não exige contribuições ao INSS. Às 11h30 eu conto o que mais muda por causa disso.",
+   "fonte": "",
+   "comentario": "",
+   "rodape": "",
+   "fundo": "retrato-claro",
+   "assunto": "BPC não é aposentadoria",
+   "noticia": 0,
+   "bloco": 1,
+   "link": ""
+  },
+  {
+   "tipo": "bpc_loas",
+   "titulo": "Hoje o assunto é BPC/LOAS",
+   "texto": "É um benefício de 1 salário mínimo para idosos a partir de 65 anos ou pessoas com deficiência de longo prazo que não têm meios de se manter.",
+   "fonte": "",
+   "comentario": "",
+   "rodape": "",
+   "fundo": "pinterest-estilo",
+   "assunto": "para quem é o BPC",
+   "noticia": 0,
+   "bloco": 2,
+   "link": ""
+  },
+  {
+   "tipo": "bpc_loas",
+   "titulo": "A família também entra na conta",
+   "texto": "Não basta a idade ou a deficiência. O INSS analisa a renda familiar, para ver se a família também não tem como manter a pessoa.",
+   "fonte": "",
+   "comentario": "",
+   "rodape": "",
+   "fundo": "retrato-pb",
+   "assunto": "renda familiar no BPC",
+   "noticia": 0,
+   "bloco": 2,
+   "link": ""
+  },
+  {
+   "tipo": "curiosidade",
+   "titulo": "Agora, a parte que pouca gente sabe",
+   "texto": "Quem recebe o BPC não ganha 13º, e o benefício não deixa pensão por morte. Tudo isso porque ele é assistência, e não aposentadoria.",
+   "fonte": "",
+   "comentario": "",
+   "rodape": "",
+   "fundo": "pinterest-trabalho",
+   "assunto": "BPC sem 13º nem pensão",
+   "noticia": 0,
+   "bloco": 2,
+   "link": ""
+  },
+  {
+   "tipo": "dica",
+   "titulo": "Resumindo",
+   "texto": "BPC é assistência, não aposentadoria. Não exige contribuição, mas exige inscrição no CadÚnico com os dados atualizados. Vale conferir se o cadastro está em dia.",
+   "fonte": "",
+   "comentario": "",
+   "rodape": "dúvidas? manda no direct",
+   "fundo": "notebook",
+   "assunto": "resumo BPC e CadÚnico",
+   "noticia": 0,
+   "bloco": 2,
+   "link": ""
+  }
+ ]
+}
